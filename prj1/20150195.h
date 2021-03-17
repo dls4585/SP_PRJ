@@ -9,9 +9,6 @@
 #define MAX_CMD_LEN 20
 #define MAX_MEMORY_SIZE 1048576
 
-char memory[MAX_MEMORY_SIZE] = {0,};
-int last_address = 0;
-
 typedef struct node {
     char cmd_history[40];
     struct node* next;

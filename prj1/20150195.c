@@ -1,9 +1,12 @@
 #include "20150195.h"
 
+char memory[MAX_MEMORY_SIZE] = {0,};
+int last_address = 0;
+
 int main() {
     char cmd[MAX_CMD_LEN];
     char cmd_token[4][10];
-    List* list = (List*)malloc(sizeof(list));
+    List* list = (List*)malloc(sizeof(List));
     list_init(list);
     while (1) {
 
@@ -84,18 +87,25 @@ int main() {
         }
         else if(strcmp(cmd_token[0], "dump") == 0 || strcmp(cmd_token[0], "du") == 0) {
             if(tokens == 1) { // dump
-                for (int i = last_address; i < last_address + 160; ++i) {
+                int i;
+                for (i = last_address; i < last_address + 160; ++i) {
                     if(i%16 == 0) {
                         printf("%05x ", i);
                     }
                     printf("%02x ", memory[i]);
                     if(i%16 == 15) {
                         printf("; ");
-                        for (int j = last_address; j < last_address+16; ++j) {
-                            if(memory[j])
+                        for (int j = last_address; j < last_address + 16; ++j) {
+                            if(memory[j] > 126 || memory[j] < 20) {
+                                printf(".");
+                            } else {
+                                printf("%c", memory[j]);
+                            }
                         }
+                        printf("\n");
                     }
                 }
+                last_address = i;
             }
         }
 
