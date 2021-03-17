@@ -13,10 +13,10 @@ Node* create_Node(char cmd_history[4][10], int i) {
             sprintf(node->cmd_history, "%s", cmd_history[j]);
         }
         else if(j == 1) {
-            sprintf(node->cmd_history, " %s", cmd_history[j]);
+            sprintf(node->cmd_history, "%s %s", node->cmd_history, cmd_history[j]);
         }
         else {
-            sprintf(node->cmd_history, ", %s", cmd_history[j]);
+            sprintf(node->cmd_history, "%s, %s", node->cmd_history, cmd_history[j]);
         }
     }
     node->next = NULL;
@@ -33,27 +33,70 @@ void list_push_back(List* list, Node* node) {
     }
 }
 
-int cmd_valid_check(char cmd_token[][10], int tokens) {
-    if((strcmp(cmd_token[0], "quit") == 0 || strcmp(cmd_token[0], "q") == 0) && tokens > 1) {
-        printf("Wrong command format, use help for command information\n");
-        return -1;
-    } else if((strcmp(cmd_token[0], "help") == 0 || strcmp(cmd_token[0], "h") == 0) && tokens > 1) {
-        printf("Wrong command format, use help for command information\n");
-        return -1;
-    } else if((strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) && tokens > 1) {
-        printf("Wrong command format, use help for command information\n");
-        return -1;
-    } else if((strcmp(cmd_token[0], "history") == 0 || strcmp(cmd_token[0], "hi") == 0) && tokens > 1) {
-        printf("Wrong command format, use help for command information\n");
-        return -1;
+int cmd_valid_check(char cmd_token[][10], int tokens, int cmd_case) {
+    switch (cmd_case) {
+        case 0: // quit
+        case 1: // help
+        case 2: // dir
+        case 3: // history
+        case 7: // reset
+        case 9: // opcodelist
+            if(tokens > 1) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
+            break;
+        case 4: // dump
+            if(tokens > 4) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
+            break;
+        case 5: // edit
+            if(tokens != 3) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
+            break;
+        case 6: // fill
+            if(tokens != 4) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
+            break;
+        case 8: // opcode mnemonic
+            if(tokens != 2) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
+            break;
+        default:
+            return 1;
     }
     return 1;
 }
 
-void clear(char cmd_token[][10], int i) {
+int args_check(char* args) {
+    if(strstr(args, " ")!= NULL || strstr(args, "\t") != NULL) {
+        printf("Wrong arguments, arguments must be in range of 0x0 to 0xFFFFF\n");
+        return 0;
+    }
+    for (int i = 0; i < strlen(args); ++i) {
+        if((args[i] >= 48 && args[i] <= 57) || (args[i] >= 65 && args[i] <= 70) || (args[i] >= 97 && args[i] <= 102)) {
+            continue;
+        } else {
+            printf("Wrong arguments, arguments must be in range of 0x0 to 0xFFFFF\n");
+            return 0;
+        }
+    }
+    return 1;
+}
+
+void clear(char* cmd, char cmd_token[][10], int i) {
     for (int j = 0; j < i; ++j) {
         strcpy(cmd_token[j], "\0");
     }
+    strcpy(cmd, "\0");
     getchar();
 }
 
@@ -97,7 +140,7 @@ void rtrim(char* cmd) {
 int cmd_is_lower(char* cmd) {
     for (int i = 0; i < strlen(cmd); ++i) {
         if(!islower(cmd[i])){
-            return -1;
+            return 0;
         }
     }
     return 1;

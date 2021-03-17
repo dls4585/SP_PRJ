@@ -4,7 +4,6 @@ char memory[MAX_MEMORY_SIZE] = {0,};
 int last_address = 0;
 
 int main() {
-    memset(memory+33, 'c', 1);
     char cmd[MAX_CMD_LEN];
     char cmd_token[4][10];
     List* list = (List*)malloc(sizeof(List));
@@ -28,73 +27,87 @@ int main() {
         // 명령어가 소문자인지 검
         if(!cmd_is_lower(cmd_token[0])) {
             printf("command must be lower case\n");
-            clear(cmd_token, tokens);
+            clear(cmd, cmd_token, tokens);
             continue;
         }
 
-        Node* node = create_Node(cmd_token, tokens);
-        list_push_back(list, node);
-
         if(strcmp(cmd_token[0], "quit") == 0 || strcmp(cmd_token[0], "q") == 0) {
-            if(!cmd_valid_check(cmd_token, tokens)) {
-                clear(cmd_token, tokens);
+            if(!cmd_valid_check(cmd_token, tokens, QUIT)) {
+                clear(cmd, cmd_token, tokens);
                 continue;
             }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
             break;
         }
         else if(strcmp(cmd_token[0], "help") == 0 || strcmp(cmd_token[0], "h") == 0) {
-            if(!cmd_valid_check(cmd_token, tokens)) {
-                clear(cmd_token, tokens);
+            if(!cmd_valid_check(cmd_token, tokens, HELP)) {
+                clear(cmd, cmd_token, tokens);
                 continue;
             }
-            else {
-                printf("h[elp]\nd[ir]\nq[uit]\nhi[story]\n"
-                       "du[mp] [start, end]\ne[dit] address, value\n"
-                       "f[ill] start, end, value\nreset\nopcode mnemonic\nopcodelist\n");
-            }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
+            printf("h[elp]\nd[ir]\nq[uit]\nhi[story]\n"
+                   "du[mp] [start, end]\ne[dit] address, value\n"
+                   "f[ill] start, end, value\nreset\nopcode mnemonic\nopcodelist\n");
+
         }
         else if(strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) {
-            if(!cmd_valid_check(cmd_token, tokens)) {
-                clear(cmd_token, tokens);
+            if(!cmd_valid_check(cmd_token, tokens, 2)) {
+                clear(cmd, cmd_token, tokens);
                 continue;
             }
-            else {
-                DIR *dp = opendir(".");
-                struct dirent *dent;
-                struct stat info;
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
 
-                while (dent = readdir(dp)) {
-                    char path[1024];
-                    sprintf(path, "./%s", dent->d_name);
-                    int stats = stat(path, &info);
-                    if(stats == -1) {
-                        printf("%s", strerror(errno));
-                    }
-                    if(S_ISDIR(info.st_mode)) {
-                        printf("%s/\n", dent->d_name);
-                    }
-                    else if(info.st_mode & S_IXUSR) {
-                        printf("%s*\n", dent->d_name);
-                    }
-                    else {
-                        printf("%s\n", dent->d_name);
-                    }
+            DIR *dp = opendir(".");
+            struct dirent *dent;
+            struct stat info;
+
+            while (dent = readdir(dp)) {
+                char path[1024];
+                sprintf(path, "./%s", dent->d_name);
+                int stats = stat(path, &info);
+                if(stats == -1) {
+                    printf("%s", strerror(errno));
+                }
+                if(S_ISDIR(info.st_mode)) {
+                    printf("%s/\n", dent->d_name);
+                }
+                else if(info.st_mode & S_IXUSR) {
+                    printf("%s*\n", dent->d_name);
+                }
+                else {
+                    printf("%s\n", dent->d_name);
                 }
             }
+
         }
         else if(strcmp(cmd_token[0], "history") == 0 || strcmp(cmd_token[0], "hi") == 0) {
-            if(!cmd_valid_check(cmd_token, tokens)) {
-                clear(cmd_token, tokens);
+            if(!cmd_valid_check(cmd_token, tokens,HISTORY)) {
+                clear(cmd, cmd_token, tokens);
                 continue;
             }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
             Node* current;
             int j = 1;
             for (current = list->head; current != NULL; current = current->next, ++j) {
-                printf("%+5d %s\n", j, current->cmd_history);
+                printf("%5d %s\n", j, current->cmd_history);
             }
         }
         else if(strcmp(cmd_token[0], "dump") == 0 || strcmp(cmd_token[0], "du") == 0) {
+            if(!cmd_valid_check(cmd_token, tokens,DUMP)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
             if(tokens == 1) { // dump
+                if(!args_check(cmd_token[1])) {
+                    clear(cmd, cmd_token, tokens);
+                    continue;
+                }
                 int i, line = last_address, end;
                 if(last_address + 160 > 0xFFFFF) {
                     end = 0x100000;
@@ -125,8 +138,12 @@ int main() {
                 }
             }
             else {
-                int start = (int)strtol(cmd_token[1], NULL, 16), end = start + 160;
+                int start = (int)strtol(cmd_token[1], NULL, 16), end;
                 if(tokens == 2) {
+                    if(!args_check(cmd_token[1])) {
+                        clear(cmd, cmd_token, tokens);
+                        continue;
+                    }
                     if(start + 160 > 0xFFFFF) {
                         end = 0xFFFFF;
                     } else {
@@ -134,17 +151,21 @@ int main() {
                     }
                 }
                 else {
+                    if(!args_check(cmd_token[1]) || !args_check(cmd_token[2])) {
+                        clear(cmd, cmd_token, tokens);
+                        continue;
+                    }
                     end = (int)strtol(cmd_token[2], NULL, 16);
 
                 }
                 if(start > 0xFFFFF || start < 0 || end > 0xFFFFF || end < 0) {
-                    printf("arguments must be in range of 0x0 ~ 0xFFFFF.\n");
-                    clear(cmd_token, tokens);
+                    printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
+                    clear(cmd, cmd_token, tokens);
                     continue;
                 }
-                else if(start > end) {
+                if(start > end) {
                     printf("START arguments must be lower than END argument.\n");
-                    clear(cmd_token, tokens);
+                    clear(cmd, cmd_token, tokens);
                     continue;
                 }
                 int line = (start/16)*16, i;
@@ -192,9 +213,56 @@ int main() {
                     }
                 }
             }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
         }
-        else if(strcmp(cmd_token[0], "edit") == 0) {
+        else if(strcmp(cmd_token[0], "edit") == 0 || strcmp(cmd_token[0], "e") == 0) {
+            if(!cmd_valid_check(cmd_token, tokens, EDIT) || !args_check(cmd_token[1]) || !args_check(cmd_token[2])) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
 
+            int address = (int)strtol(cmd_token[1], NULL, 16), value = (int)strtol(cmd_token[2], NULL, 16);
+            if(address > 0xFFFFF || address < 0) {
+                printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            memset(&memory[address], value, 1);
+        }
+        else if(strcmp(cmd_token[0], "fill") == 0 || strcmp(cmd_token[0],"f") == 0) {
+            if(!cmd_valid_check(cmd_token, tokens, FILL) || !args_check(cmd_token[1]) || !args_check(cmd_token[2]) || !args_check(cmd_token[3])) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
+            int start = (int)strtol(cmd_token[1], NULL, 16), end = (int)strtol(cmd_token[2], NULL, 16),
+            value = (int)strtol(cmd_token[3], NULL, 16);
+            if(start > 0xFFFFF || start < 0 || end > 0xFFFFF || end < 0) {
+                printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            if(start > end) {
+                printf("START arguments must be lower than END argument.\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            memset(&memory[start], value, end-start+1);
+        }
+        else if(strcmp(cmd_token[0], "reset") == 0) {
+            if(!cmd_valid_check(cmd_token, tokens, RESET)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
+            memset(memory, 0, MAX_MEMORY_SIZE);
         }
         else if(strcmp(cmd_token[0], "opcode") == 0) {
             if(!cmd_is_lower(cmd_token[1])) {
@@ -202,6 +270,6 @@ int main() {
                 continue;
             }
         }
-        clear(cmd_token, tokens);
+        clear(cmd, cmd_token, tokens);
     }
 }
