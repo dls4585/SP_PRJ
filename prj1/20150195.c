@@ -88,8 +88,13 @@ int main() {
         }
         else if(strcmp(cmd_token[0], "dump") == 0 || strcmp(cmd_token[0], "du") == 0) {
             if(tokens == 1) { // dump
-                int i, line = last_address;
-                for (i = last_address; i < last_address + 160; ++i) {
+                int i, line = last_address, end;
+                if(last_address + 160 > 0xFFFFF) {
+                    end = 0x100000;
+                } else {
+                    end = last_address + 160;
+                }
+                for (i = last_address; i < end; ++i) {
                     if(i%16 == 0) {
                         printf("%05X ", i);
                     }
@@ -108,15 +113,34 @@ int main() {
                     }
                 }
                 last_address = i;
+                if(last_address >= 0xFFFFF) {
+                    last_address = 0;
+                }
             }
-            else if(tokens == 2) {
-                int i, start = (int)strtol(cmd_token[1], NULL, 16), end = start + 160;
-                if(start > 0xFFFFF || start < 0) {
+            else {
+                int start = (int)strtol(cmd_token[1], NULL, 16), end = start + 160;
+                if(tokens == 2) {
+                    if(start + 160 > 0xFFFFF) {
+                        end = 0xFFFFF;
+                    } else {
+                        end = start + 160;
+                    }
+                }
+                else {
+                    end = (int)strtol(cmd_token[2], NULL, 16);
+
+                }
+                if(start > 0xFFFFF || start < 0 || end > 0xFFFFF || end < 0) {
                     printf("arguments must be in range of 0x0 ~ 0xFFFFF.\n");
                     clear(cmd_token, tokens);
                     continue;
                 }
-                int line = (start/16)*16;
+                else if(start > end) {
+                    printf("START arguments must be lower than END argument.\n");
+                    clear(cmd_token, tokens);
+                    continue;
+                }
+                int line = (start/16)*16, i;
                 if(start%16 != 0) {
                     printf("%05X ", line);
                     for (int j = start%16; j > 0; --j) {
@@ -161,21 +185,7 @@ int main() {
                     }
                 }
             }
-            else if(tokens == 3) {
-                int i, start = (int)strtol(cmd_token[1], NULL, 16), end = (int)strtol(cmd_token[2], NULL, 16);
-                if(start > 0xFFFFF || start < 0 || end > 0xFFFFF || end < 0) {
-                    printf("arguments must be in range of 0x0 ~ 0xFFFFF.\n");
-                    clear(cmd_token, tokens);
-                    continue;
-                }
-                else if(start > end) {
-                    printf("START arguments must be lower than END argument.\n");
-                    clear(cmd_token, tokens);
-                    continue;
-                }
-            }
         }
-
         else if(strcmp(cmd_token[0], "opcode") == 0) {
             if(!cmd_is_lower(cmd_token[1])) {
                 printf("command must be lower case\n");
