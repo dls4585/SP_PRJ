@@ -24,7 +24,7 @@ Node* create_Node(char cmd_history[4][10], int i);
 void list_push_back(List* list, Node* node);
 void list_remove(List* list, Node* node);
 
-
+int cmd_valid_check(char cmd_token[][10], int i);
 void clear(char cmd_token[][10], int i);
 
 void trim_cmd(char* cmd);

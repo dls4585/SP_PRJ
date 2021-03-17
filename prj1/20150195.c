@@ -36,14 +36,16 @@ int main() {
         list_push_back(list, node);
 
         if(strcmp(cmd_token[0], "quit") == 0 || strcmp(cmd_token[0], "q") == 0) {
-            if(tokens > 1) {
-                printf("Wrong command format, use help for command information\n");
+            if(!cmd_valid_check(cmd_token, tokens)) {
+                clear(cmd_token, tokens);
+                continue;
             }
             break;
         }
         else if(strcmp(cmd_token[0], "help") == 0 || strcmp(cmd_token[0], "h") == 0) {
-            if(tokens > 1) {
-                printf("Wrong command format, use help for command information\n");
+            if(!cmd_valid_check(cmd_token, tokens)) {
+                clear(cmd_token, tokens);
+                continue;
             }
             else {
                 printf("h[elp]\nd[ir]\nq[uit]\nhi[story]\n"
@@ -52,8 +54,9 @@ int main() {
             }
         }
         else if(strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) {
-            if(tokens > 1) {
-                printf("Wrong command format, use help for command information\n");
+            if(!cmd_valid_check(cmd_token, tokens)) {
+                clear(cmd_token, tokens);
+                continue;
             }
             else {
                 DIR *dp = opendir(".");
@@ -80,6 +83,10 @@ int main() {
             }
         }
         else if(strcmp(cmd_token[0], "history") == 0 || strcmp(cmd_token[0], "hi") == 0) {
+            if(!cmd_valid_check(cmd_token, tokens)) {
+                clear(cmd_token, tokens);
+                continue;
+            }
             Node* current;
             int j = 1;
             for (current = list->head; current != NULL; current = current->next, ++j) {
@@ -185,6 +192,9 @@ int main() {
                     }
                 }
             }
+        }
+        else if(strcmp(cmd_token[0], "edit") == 0) {
+
         }
         else if(strcmp(cmd_token[0], "opcode") == 0) {
             if(!cmd_is_lower(cmd_token[1])) {

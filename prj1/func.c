@@ -33,6 +33,23 @@ void list_push_back(List* list, Node* node) {
     }
 }
 
+int cmd_valid_check(char cmd_token[][10], int tokens) {
+    if((strcmp(cmd_token[0], "quit") == 0 || strcmp(cmd_token[0], "q") == 0) && tokens > 1) {
+        printf("Wrong command format, use help for command information\n");
+        return -1;
+    } else if((strcmp(cmd_token[0], "help") == 0 || strcmp(cmd_token[0], "h") == 0) && tokens > 1) {
+        printf("Wrong command format, use help for command information\n");
+        return -1;
+    } else if((strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) && tokens > 1) {
+        printf("Wrong command format, use help for command information\n");
+        return -1;
+    } else if((strcmp(cmd_token[0], "history") == 0 || strcmp(cmd_token[0], "hi") == 0) && tokens > 1) {
+        printf("Wrong command format, use help for command information\n");
+        return -1;
+    }
+    return 1;
+}
+
 void clear(char cmd_token[][10], int i) {
     for (int j = 0; j < i; ++j) {
         strcpy(cmd_token[j], "\0");
@@ -46,7 +63,7 @@ void trim_cmd(char* cmd) {
     ltrim(cmd);
 }
 void ltrim(char* cmd) {
-    int index = 0, cmd_len = strlen(cmd);
+    int index = 0, cmd_len = (int)strlen(cmd);
     char trimmed[MAX_CMD_LEN];
 
     strcpy(trimmed, cmd);
@@ -61,7 +78,7 @@ void ltrim(char* cmd) {
     strcpy(cmd, trimmed+index);
 }
 void rtrim(char* cmd) {
-    int cmd_len = strlen(cmd);
+    int cmd_len = (int)strlen(cmd);
     char trimmed[MAX_CMD_LEN];
 
     strcpy(trimmed, cmd);
@@ -78,7 +95,6 @@ void rtrim(char* cmd) {
 }
 
 int cmd_is_lower(char* cmd) {
-    int index = 0;
     for (int i = 0; i < strlen(cmd); ++i) {
         if(!islower(cmd[i])){
             return -1;
