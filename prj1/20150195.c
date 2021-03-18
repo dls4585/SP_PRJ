@@ -20,7 +20,11 @@ int main() {
         printf("sicsim> ");
         scanf("%[^\n]", cmd);
         trim_cmd(cmd); // 명령어 좌 우 공백 다듬기
-
+        if(cmd[strlen(cmd)-1] == ',') {
+            printf("Wrong command format, use help for command information\n");
+            clear(cmd, cmd_token, tokens);
+            continue;
+        }
         // 명령어와 인자 구분
         char* ptr = strtok(cmd, " ");
         while(ptr != NULL) {
@@ -68,15 +72,16 @@ int main() {
             list_push_back(list, node);
 
             DIR *dp = opendir(".");
-            struct dirent *dent;
+            struct dirent *dent = readdir(dp);
             struct stat info;
 
-            while (dent = readdir(dp)) {
+            while (dent) {
                 char path[1024];
                 sprintf(path, "./%s", dent->d_name);
                 int stats = stat(path, &info);
                 if(stats == -1) {
                     printf("%s", strerror(errno));
+                    break;
                 }
                 if(S_ISDIR(info.st_mode)) {
                     printf("%s/\n", dent->d_name);
@@ -87,6 +92,7 @@ int main() {
                 else {
                     printf("%s\n", dent->d_name);
                 }
+                dent = readdir(dp);
             }
 
         }
@@ -110,10 +116,6 @@ int main() {
                 continue;
             }
             if(tokens == 1) { // dump
-                if(!args_check(cmd_token[1])) {
-                    clear(cmd, cmd_token, tokens);
-                    continue;
-                }
                 int i, line = last_address, end;
                 if(last_address + 160 > 0xFFFFF) {
                     end = 0x100000;
@@ -153,7 +155,7 @@ int main() {
                     if(start + 160 > 0xFFFFF) {
                         end = 0xFFFFF;
                     } else {
-                        end = start + 160;
+                        end = start + 159;
                     }
                 }
                 else {
@@ -181,7 +183,7 @@ int main() {
                         printf("   ");
                     }
                 }
-                for (i = start; i < end; ++i) {
+                for (i = start; i <= end; ++i) {
                     if(i%16 == 0) {
                         printf("%05X ", i);
                     }
@@ -199,7 +201,7 @@ int main() {
                         printf("\n");
                         line = i;
                     }
-                    if(i%16 != 15 && i+1 == end) {
+                    if(i%16 != 15 && i == end) {
                         for (int j = 15 - (i % 16); j > 0; --j) {
                             printf("   ");
                         }
@@ -224,15 +226,16 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            Node* node = create_Node(cmd_token, tokens);
-            list_push_back(list, node);
-
             int address = (int)strtol(cmd_token[1], NULL, 16), value = (int)strtol(cmd_token[2], NULL, 16);
             if(address > 0xFFFFF || address < 0) {
                 printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
             memset(&memory[address], value, 1);
         }
         else if(strcmp(cmd_token[0], "fill") == 0 || strcmp(cmd_token[0],"f") == 0) {
@@ -240,11 +243,9 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            Node* node = create_Node(cmd_token, tokens);
-            list_push_back(list, node);
-
             int start = (int)strtol(cmd_token[1], NULL, 16), end = (int)strtol(cmd_token[2], NULL, 16),
-            value = (int)strtol(cmd_token[3], NULL, 16);
+                    value = (int)strtol(cmd_token[3], NULL, 16);
+
             if(start > 0xFFFFF || start < 0 || end > 0xFFFFF || end < 0) {
                 printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
                 clear(cmd, cmd_token, tokens);
@@ -255,6 +256,9 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
             memset(&memory[start], value, end-start+1);
         }
         else if(strcmp(cmd_token[0], "reset") == 0) {
@@ -277,16 +281,16 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-
-            Node* node = create_Node(cmd_token, tokens);
-            list_push_back(list, node);
-
             int opcode = hash_search(hashtable, cmd_token[1]);
             if(opcode == -1) {
                 printf("cannot find opcode of %s\n", cmd_token[1]);
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(list, node);
+
             printf("opcode is %X\n", opcode);
 
         }
@@ -311,6 +315,9 @@ int main() {
                 }
                 printf("\n");
             }
+        }
+        else {
+            printf("Wrong command format, use help for command information\n");
         }
 
         clear(cmd, cmd_token, tokens);
