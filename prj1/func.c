@@ -33,7 +33,7 @@ void list_push_back(List* list, Node* node) {
     }
 }
 
-int cmd_valid_check(char cmd_token[][10], int tokens, int cmd_case) {
+int cmd_valid_check(int tokens, int cmd_case) {
     switch (cmd_case) {
         case 0: // quit
         case 1: // help
@@ -137,11 +137,109 @@ void rtrim(char* cmd) {
     strcpy(cmd, trimmed);
 }
 
-int cmd_is_lower(char* cmd) {
+int is_lower(char* cmd) {
     for (int i = 0; i < strlen(cmd); ++i) {
         if(!islower(cmd[i])){
             return 0;
         }
     }
     return 1;
+}
+
+int is_upper(char* cmd) {
+    for (int i = 0; i < strlen(cmd); ++i) {
+        if (!isupper(cmd[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+int hash_init(bucket* hashtable) {
+    for (int i = 0; i < HASH_SIZE; ++i) {
+        hashtable[i].count = 0;
+        hashtable[i].head = NULL;
+    }
+    FILE* fp = fopen("opcode.txt", "r");
+    if(fp == NULL) {
+        printf("opcode.txt file does not exist\n");
+        return 0;
+    }
+    while(1) {
+        char line[50];
+        char line_tokens[3][10];
+        int tokens = 0;
+        hash_node* hash = (hash_node*)malloc(sizeof(hash_node));
+        hash->format[0] = 0;
+        hash->format[1] = 0;
+        hash->next = NULL;
+
+        fgets(line, 50, fp);
+        if(feof(fp)) break;
+
+        int len = (int)strlen(line);
+        line[len-1] = line[len-2] = '\0';
+
+        char* ptr = strtok(line, "\t");
+        while(ptr != NULL) {
+            trim_cmd(ptr);
+            strcpy(line_tokens[tokens], ptr);
+            ptr = strtok(NULL, "\t");
+            tokens++;
+        }
+        if(tokens != 3) {
+            printf("file read is going wrong\n");
+            return 0;
+        }
+
+        hash->opcode = (int)strtol(line_tokens[0], NULL, 16);
+        strcpy(hash->mnemonic, line_tokens[1]);
+
+        if(strlen(line_tokens[2]) < 2) {
+            hash->format[0] = (int)strtol(line_tokens[2], NULL, 10);
+        }
+        else {
+            ptr = strtok(line_tokens[2], "/");
+            for (int i = 0; i < 2; ++i) {
+                hash->format[i] = (int)strtol(ptr, NULL, 10);
+                ptr = strtok(NULL, "/");
+            }
+        }
+
+        insert_hash(hashtable, hash);
+    }
+    fclose(fp);
+    return 1;
+}
+
+void insert_hash(bucket* hashtable, hash_node* hash) {
+    int hash_index = hash_function(hash->mnemonic);
+    if(hashtable[hash_index].count == 0) {
+        hashtable[hash_index].head = hash;
+        hashtable[hash_index].count++;
+    }
+    else {
+        hash->next = hashtable[hash_index].head;
+        hashtable[hash_index].head = hash;
+        hashtable[hash_index].count++;
+    }
+}
+
+int hash_function(char* mnemonic) {
+    int len = (int)strlen(mnemonic), ret = 0;
+    for (int i = 0; i < len; ++i) {
+        ret += (mnemonic[i] * (i + 1));
+    }
+    ret %= HASH_SIZE;
+    return ret;
+}
+
+int hash_search(bucket* hashtable, char* mnemonic) {
+    int hash_index = hash_function(mnemonic);
+    hash_node* current = hashtable[hash_index].head;
+    for (; current != NULL; current = current->next) {
+        if(strcmp(current->mnemonic, mnemonic) == 0)
+            return current->opcode;
+    }
+    return -1;
 }

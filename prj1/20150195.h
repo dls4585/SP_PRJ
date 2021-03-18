@@ -8,6 +8,7 @@
 
 #define MAX_CMD_LEN 20
 #define MAX_MEMORY_SIZE 1048576
+#define HASH_SIZE 20
 
 #define QUIT 0
 #define HELP 1
@@ -30,16 +31,34 @@ typedef struct list {
     Node* tail;
 } List;
 
+typedef struct hash_node {
+    char mnemonic[10];
+    int opcode;
+    int format[2];
+    struct hash_node* next;
+} hash_node;
+
+typedef struct bucket {
+    struct hash_node* head;
+    int count;
+} bucket;
+
 void list_init(List* list);
 Node* create_Node(char cmd_history[4][10], int i);
 void list_push_back(List* list, Node* node);
 void list_remove(List* list, Node* node);
 
-int cmd_valid_check(char cmd_token[][10], int i, int cmd_case);
+int cmd_valid_check(int i, int cmd_case);
 int args_check(char* args);
 void clear(char* cmd, char cmd_token[][10], int i);
 
 void trim_cmd(char* cmd);
 void ltrim(char* cmd);
 void rtrim(char* cmd);
-int cmd_is_lower(char* cmd);
+int is_lower(char* cmd);
+int is_upper(char* cmd);
+
+int hash_init(bucket* hashtable);
+void insert_hash(bucket* hashtable, hash_node* hash);
+int hash_function(char* mnemonic);
+int hash_search(bucket* hashtable, char* mnemonic);
