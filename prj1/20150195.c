@@ -5,7 +5,7 @@ int last_address = 0;
 
 int main() {
     char cmd[MAX_CMD_LEN];
-    char cmd_token[4][10];
+    char cmd_token[4][MAX_CMD_LEN];
     bucket* hashtable = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
     if(!hash_init(hashtable)) {
         printf("cannot initialize hash table\n");
@@ -15,23 +15,32 @@ int main() {
     List* list = (List*)malloc(sizeof(List));
     list_init(list);
     while (1) {
-
         int tokens = 0;
         printf("sicsim> ");
-        scanf("%[^\n]", cmd);
+        scanf("%49[^\n]s", cmd);
+        removeTab(cmd);
         trim_cmd(cmd); // 명령어 좌 우 공백 다듬기
-        if(cmd[strlen(cmd)-1] == ',') {
+        // 명령어와 인자 구분
+        char* ptr;
+        char* temp = cmd;
+        ptr=strsep(&temp, " ");
+        strcpy(cmd_token[tokens], ptr);
+        tokens++;
+        int sep_success = 1;
+        while((ptr=strsep(&temp,",")) != NULL) {
+            strcpy(cmd_token[tokens], ptr);
+            trim_cmd(cmd_token[tokens]);
+            tokens++;
+            if(tokens > 4) {
+                sep_success = 0;
+                break;
+            }
+        }
+
+        if(!sep_success) {
             printf("Wrong command format, use help for command information\n");
             clear(cmd, cmd_token, tokens);
             continue;
-        }
-        // 명령어와 인자 구분
-        char* ptr = strtok(cmd, " ");
-        while(ptr != NULL) {
-            strcpy(cmd_token[tokens], ptr);
-            trim_cmd(cmd_token[tokens]); // token 좌 우 공백 다듬기
-            ptr = strtok(NULL, ","); // 두번째 부터는 인자로 판단 , 로 tokenize
-            tokens++;
         }
 
         // 명령어가 소문자인지 검
@@ -308,7 +317,7 @@ int main() {
                 hash_node* current;
                 int count = hashtable[i].count;
                 for (current = hashtable[i].head; current != NULL; current = current->next, count--) {
-                    printf("[%d,%s]", current->opcode, current->mnemonic);
+                    printf("[%X,%s]", current->opcode, current->mnemonic);
                     if(count != 1) {
                         printf("  ->  ");
                     }

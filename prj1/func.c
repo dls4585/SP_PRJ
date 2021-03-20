@@ -6,7 +6,7 @@ void list_init(List* list) {
     list->tail = NULL;
 }
 
-Node* create_Node(char cmd_history[4][10], int i) {
+Node* create_Node(char cmd_history[4][MAX_CMD_LEN], int i) {
     Node* node = (Node*)malloc(sizeof(Node));
     for (int j = 0; j < i; ++j) {
         if(j == 0) {
@@ -47,7 +47,7 @@ int cmd_valid_check(int tokens, int cmd_case) {
             }
             break;
         case 4: // dump
-            if(tokens > 4) {
+            if(tokens > 3) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
             }
@@ -92,12 +92,13 @@ int args_check(char* args) {
     return 1;
 }
 
-void clear(char* cmd, char cmd_token[][10], int i) {
+void clear(char* cmd, char cmd_token[][MAX_CMD_LEN], int i) {
     for (int j = 0; j < i; ++j) {
         strcpy(cmd_token[j], "\0");
     }
     strcpy(cmd, "\0");
-    getchar();
+//    getchar();
+    rewind(stdin);
 }
 
 
@@ -242,4 +243,13 @@ int hash_search(bucket* hashtable, char* mnemonic) {
             return current->opcode;
     }
     return -1;
+}
+
+void removeTab(char* string) {
+    char* find;
+    while(1) {
+        find = strchr(string, '\t');
+        if(!find) return;
+        strncpy(find, " ",1);
+    }
 }
