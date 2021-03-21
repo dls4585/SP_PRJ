@@ -1,4 +1,3 @@
-/* 포함되는 파일들 */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -7,7 +6,6 @@
 #include "errno.h"
 #include "ctype.h"
 
-/* 정의되는 상수 */
 #define MAX_CMD_LEN 100
 #define MAX_MEMORY_SIZE 1048576
 #define HASH_SIZE 20
@@ -23,7 +21,6 @@
 #define MNEMONIC 8
 #define OPLIST 9
 
-/* 정의되는 구조체 */
 typedef struct node {
     char cmd_history[MAX_CMD_LEN];
     struct node* next;
@@ -46,7 +43,6 @@ typedef struct bucket {
     int count;
 } bucket;
 
-/* 함수목록 */
 void list_init(List* list);
 Node* create_Node(char cmd_history[4][MAX_CMD_LEN], int i);
 void list_push_back(List* list, Node* node);

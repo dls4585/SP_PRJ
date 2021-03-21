@@ -40,7 +40,7 @@ void list_push_back(List* list, Node* node) {
     if(list->head == NULL && list->tail == NULL) {
         list->head = list->tail = node;
     }
-    // 리스트에 노드가 있을 때 제일 마지막 노드 뒤에 추가한다.
+        // 리스트에 노드가 있을 때 제일 마지막 노드 뒤에 추가한다.
     else {
         list->tail->next = node;
         list->tail = node;
@@ -258,7 +258,7 @@ int hash_init(bucket* hashtable) {
         if(strlen(line_tokens[2]) < 2) {
             hash->format[0] = (int)strtol(line_tokens[2], NULL, 10);
         }
-        // 3/4 처럼 두개의 포맷을 가질 수 있는 경우 둘 모두 저장한다.
+            // 3/4 처럼 두개의 포맷을 가질 수 있는 경우 둘 모두 저장한다.
         else {
             ptr = strtok(line_tokens[2], "/");
             for (int i = 0; i < 2; ++i) {
