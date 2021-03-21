@@ -46,7 +46,6 @@ typedef struct bucket {
 void list_init(List* list);
 Node* create_Node(char cmd_history[4][MAX_CMD_LEN], int i);
 void list_push_back(List* list, Node* node);
-void list_remove(List* list, Node* node);
 
 int cmd_valid_check(int i, int cmd_case);
 int args_check(char* args);
@@ -63,4 +62,4 @@ void insert_hash(bucket* hashtable, hash_node* hash);
 int hash_function(char* mnemonic);
 int hash_search(bucket* hashtable, char* mnemonic);
 
-void removeTab(char* string);
+void replaceTab(char* string);
