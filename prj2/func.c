@@ -53,36 +53,37 @@ void list_push_back(List* list, Node* node) {
  */
 int cmd_valid_check(int tokens, int cmd_case) {
     switch (cmd_case) {
-        case 0: // quit
-        case 1: // help
-        case 2: // dir
-        case 3: // history
-        case 7: // reset
-        case 9: // opcodelist
+        case QUIT: // quit
+        case HELP: // help
+        case DIRECTORY: // dir
+        case HISTORY: // history
+        case RESET: // reset
+        case OPLIST: // opcodelist
             if(tokens > 1) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
             }
             break;
-        case 4: // dump
+        case DUMP: // dump
             if(tokens > 3) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
             }
             break;
-        case 5: // edit
+        case EDIT: // edit
             if(tokens != 3) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
             }
             break;
-        case 6: // fill
+        case FILL: // fill
             if(tokens != 4) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
             }
             break;
-        case 8: // opcode mnemonic
+        case MNEMONIC: // opcode mnemonic
+        case TYPE:
             if(tokens != 2) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;

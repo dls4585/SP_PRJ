@@ -86,7 +86,8 @@ int main() {
             // 명령어 리스트를 출력
             printf("h[elp]\nd[ir]\nq[uit]\nhi[story]\n"
                    "du[mp] [start, end]\ne[dit] address, value\n"
-                   "f[ill] start, end, value\nreset\nopcode mnemonic\nopcodelist\n");
+                   "f[ill] start, end, value\nreset\nopcode mnemonic\nopcodelist\n"
+                   "assemble filename\ntype filename\nsymbol\n");
 
         }
         // cmd == "dir" or "d"
@@ -95,21 +96,19 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            // 명령어를 history 리스트에 추가
-            Node* node = create_Node(cmd_token, tokens);
-            list_push_back(history, node);
 
             // 현재 dir를 열어 읽는다
             DIR *dp = opendir(".");
             struct dirent *dent = readdir(dp);
             struct stat info;
+            int ret = 0;
 
             while (dent) { // 더이상 읽을 파일이 없을 때까지(dent != NULL)
                 char path[1024];
                 sprintf(path, "./%s", dent->d_name);
                 // ./FILENAME의 이름을 갖는 파일의 정보를 읽어들임
-                int stats = stat(path, &info);
-                if(stats == -1) {
+                ret = stat(path, &info);
+                if(ret == FAIL) {
                     printf("%s", strerror(errno));
                     break;
                 }
@@ -127,6 +126,13 @@ int main() {
                 }
                 dent = readdir(dp);
             }
+            if(ret == FAIL) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
 
         }
         // cmd == "history" or "hi"
@@ -400,6 +406,45 @@ int main() {
                 }
                 printf("\n");
             }
+        }
+        // cmd == "type"
+        else if(strcmp(cmd_token[0], "type") == 0) {
+            if(!cmd_valid_check(tokens,TYPE)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            // 현재 dir를 열어 읽는다
+            DIR *dp = opendir(".");
+            struct stat info;
+            int ret;
+
+            char path[1024];
+            sprintf(path, "./%s", cmd_token[1]);
+            ret = stat(path, &info);
+            if(ret == FAIL) {
+                printf("cannot find file named %s\n", cmd_token[1]);
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            FILE* fp = fopen(cmd_token[1], "r");
+            if(fp == NULL) {
+                printf("cannot open file %s\n", cmd_token[1]);
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            while(1) {
+                char line[100];
+                fgets(line, 100, fp);
+                if(feof(fp)) break;
+
+                int len = (int)strlen(line);
+                line[len-1] = '\0';
+
+                printf("%s\n", line);
+            }
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
         }
         // 해당하는 명령어가 없는 경우 에러 처리
         else {

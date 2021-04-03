@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="SshConfigs">
-    <configs>
-      <sshConfig authType="PASSWORD" host="cspro.sogang.ac.kr" id="d9021be7-3382-4743-8f9b-984e913709bc" port="22" nameFormat="DESCRIPTIVE" username="cse20150195" />
-    </configs>
-  </component>
-</project>

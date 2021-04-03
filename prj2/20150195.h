@@ -12,6 +12,7 @@
 #define MAX_MEMORY_SIZE 1048576
 #define HASH_SIZE 20
 
+#define FAIL -1
 #define QUIT 0
 #define HELP 1
 #define DIRECTORY 2
@@ -22,6 +23,7 @@
 #define RESET 7
 #define MNEMONIC 8
 #define OPLIST 9
+#define TYPE 10
 
 /* 정의되는 구조체 */
 typedef struct node {
