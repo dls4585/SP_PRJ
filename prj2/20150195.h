@@ -24,6 +24,10 @@
 #define MNEMONIC 8
 #define OPLIST 9
 #define TYPE 10
+#define ASSEMBLE 11
+
+#define OPCODE 0
+#define SYMBOL 1
 
 /* 정의되는 구조체 */
 typedef struct node {
@@ -43,8 +47,15 @@ typedef struct hash_node {
     struct hash_node* next;
 } hash_node;
 
+typedef struct symbol_node {
+    char name[30];
+    int LOCCTR;
+    struct symbol_node* next;
+} symbol_node;
+
 typedef struct bucket {
     struct hash_node* head;
+    struct symbol_node* s_head;
     int count;
 } bucket;
 
@@ -63,9 +74,13 @@ void rtrim(char* cmd);
 int is_lower(char* cmd);
 int is_upper(char* cmd);
 
-int hash_init(bucket* hashtable);
-void insert_hash(bucket* hashtable, hash_node* hash);
-int hash_function(char* mnemonic);
-int hash_search(bucket* hashtable, char* mnemonic);
+int make_opcode_table(bucket* hashtable);
+void insert_opcode(bucket* hashtable, hash_node* hash);
+int hash_function(char* field);
+int opcode_search(bucket* hashtable, char* mnemonic);
 
 void replaceTab(char* string);
+
+void make_symbol_table(bucket* symtab);
+void insert_sym(bucket* symtab, symbol_node* symbol);
+int symbol_search(bucket* symtab, char* symbol_name);

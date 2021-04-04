@@ -13,17 +13,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="cc783830-bbf3-4edc-91b2-efa1969cd727" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/prj2.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/deployment.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/sshConfigs.xml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/untitled.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/webServers.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/20150195.c" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/20150195.h" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CMakeLists.txt" beforeDir="false" afterPath="$PROJECT_DIR$/CMakeLists.txt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/func.c" beforeDir="false" afterPath="$PROJECT_DIR$/func.c" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -62,6 +54,11 @@
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <list>
       <item itemvalue="CMake Application.20150195" />
       <item itemvalue="CMake Application.prj2" />
@@ -78,6 +75,7 @@
       <workItem from="1617264841765" duration="267000" />
       <workItem from="1617265120793" duration="131000" />
       <workItem from="1617265421687" duration="766000" />
+      <workItem from="1617548656313" duration="5741000" />
     </task>
     <servers />
   </component>
@@ -101,8 +99,8 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
           <url>file://$PROJECT_DIR$/20150195.c</url>
-          <line>21</line>
-          <option name="timeStamp" value="1" />
+          <line>450</line>
+          <option name="timeStamp" value="3" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

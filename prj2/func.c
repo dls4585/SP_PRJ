@@ -84,6 +84,7 @@ int cmd_valid_check(int tokens, int cmd_case) {
             break;
         case MNEMONIC: // opcode mnemonic
         case TYPE:
+        case ASSEMBLE:
             if(tokens != 2) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
@@ -212,7 +213,7 @@ int is_upper(char* cmd) {
  * 목적 : 해쉬테이블 초기화
  * 리턴값 : 초기화 성공 - 1 / 실패 - 0
  */
-int hash_init(bucket* hashtable) {
+int make_opcode_table(bucket* hashtable) {
     for (int i = 0; i < HASH_SIZE; ++i) {
         hashtable[i].count = 0;
         hashtable[i].head = NULL;
@@ -268,7 +269,7 @@ int hash_init(bucket* hashtable) {
             }
         }
 
-        insert_hash(hashtable, hash);
+        insert_opcode(hashtable, hash, OPCODE);
     }
     fclose(fp);
     return 1;
@@ -278,7 +279,7 @@ int hash_init(bucket* hashtable) {
  * 목적 : 해쉬 노드를 해쉬 테이블 내에 삽입한다.
  * 리턴값 : 없
  */
-void insert_hash(bucket* hashtable, hash_node* hash) {
+void insert_opcode(bucket* hashtable, hash_node* hash) {
     // 해쉬 함수를 통해 인덱스를 얻는다.
     int hash_index = hash_function(hash->mnemonic);
     // 새로 삽입되는 해쉬 노드가 해당 인덱스의 리스트의 head가 된다.
@@ -294,16 +295,16 @@ void insert_hash(bucket* hashtable, hash_node* hash) {
 }
 
 // 해쉬 함수
-// mnemonic 각 자리의 ascii값 * 자리수 번호를 모두 한 후
+// field 각 자리의 ascii값 * 자리수 번호를 모두 한 후
 // 해쉬 사이즈로 나눈 나머지를 반환음
 /*
  * 목적 : 해쉬 테이블의 key 값을 구한다.
  * 리턴값 : 해쉬 테이블의 key(index)
  */
-int hash_function(char* mnemonic) {
-    int len = (int)strlen(mnemonic), ret = 0;
+int hash_function(char* field) {
+    int len = (int)strlen(field), ret = 0;
     for (int i = 0; i < len; ++i) {
-        ret += (mnemonic[i] * (i + 1));
+        ret += (field[i] * (i + 1));
     }
     ret %= HASH_SIZE;
     return ret;
@@ -313,7 +314,7 @@ int hash_function(char* mnemonic) {
  * 목적 : 해쉬 테이블을 순회하며 파라미터의 mnemonic에 해당하는 해쉬 노드를 찾고 그 opcode를 반환한다.
  * 리턴값 : opcode / 실패시 - -1
  */
-int hash_search(bucket* hashtable, char* mnemonic) {
+int opcode_search(bucket* hashtable, char* mnemonic) {
     int hash_index = hash_function(mnemonic);
     hash_node* current = hashtable[hash_index].head;
     for (; current != NULL; current = current->next) {
@@ -334,4 +335,34 @@ void replaceTab(char* string) {
         if(!find) return;
         strncpy(find, " ",1);
     }
+}
+
+void make_symbol_table(bucket* symtab) {
+    for (int i = 0; i < HASH_SIZE; ++i) {
+        symtab[i].s_head = NULL;
+        symtab[i].count = 0;
+    }
+}
+
+void insert_sym(bucket* symtab, symbol_node* symbol) {
+    int index = hash_function(symbol->name) ;
+    if(symtab[index].count == 0) {
+        symtab[index].s_head = symbol;
+        symtab[index].count++;
+    }
+    else {
+        symbol->next = symtab[index].s_head;
+        symtab[index].s_head = symbol;
+        symtab[index].count++;
+    }
+}
+
+int symbol_search(bucket* symtab, char* symbol_name) {
+    int hash_index = hash_function(symbol_name);
+    symbol_node* current = symtab[hash_index].s_head;
+    for (; current != NULL; current = current->next) {
+        if(strcmp(current->name, symbol_name) == 0)
+            return current->LOCCTR;
+    }
+    return -1;
 }
