@@ -12,7 +12,9 @@
 #define MAX_MEMORY_SIZE 1048576
 #define HASH_SIZE 20
 
+#define SUCCESS 1
 #define FAIL -1
+
 #define QUIT 0
 #define HELP 1
 #define DIRECTORY 2
@@ -84,3 +86,5 @@ void replaceTab(char* string);
 void make_symbol_table(bucket* symtab);
 void insert_sym(bucket* symtab, symbol_node* symbol);
 int symbol_search(bucket* symtab, char* symbol_name);
+
+int pass1(char* filename, bucket* optab, bucket* symtab, int* lines, int* LOCCTR, int* error_flag);

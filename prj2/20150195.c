@@ -455,80 +455,13 @@ int main() {
             }
             // 확장자명 처리 해줘야함
 
-            FILE* fp = fopen(cmd_token[1], "r");
-            FILE* mid_file = fopen("mid_file.txt", "w");
-            if(fp == NULL) {
-                printf("cannot open file %s\n", cmd_token[1]);
-                clear(cmd, cmd_token, tokens);
-                continue;
-            }
-            if(mid_file == NULL) {
-                printf("cannot open file mid_file\n");
-                clear(cmd, cmd_token, tokens);
-                continue;
-            }
             int error_flag = 0;
             int lines = 0;
             int LOCCTR = 0;
 
-            while(1) { // 아직 중간 파일에 안 썼음
-                char line[100];
-                char line_token[3][30];
-                int asm_tokens = 0;
-                char* asm_ptr;
-
-                fgets(line, 100, fp);
-                lines+=5;
-                if(feof(fp)) break;
-
-                int len = (int)strlen(line);
-                line[len-1] = '\0';
-
-                if(line[0] == '.') continue; // comment line
-
-                asm_ptr = strtok(line, " ");
-                while(asm_ptr != NULL) {
-                    strcpy(line_token[asm_tokens], asm_ptr);
-                    asm_tokens++;
-                    asm_ptr = strtok(NULL, " ");
-                }
-
-                if(asm_tokens == 3) { // label 있음
-                    if(strcmp(line_token[1], "START") == 0) {
-                        LOCCTR = (int)strtol(line_token[2], NULL, 10);
-                    }
-                    if(line_token[1][0] == '+') {
-                        LOCCTR += 4;
-                        strcpy(line_token[1], line_token[1]+1); // ?
-                    }
-                    else {
-                        if(opcode_search(optab, line_token[1]) != -1 || strcmp(line_token[1], "WORD") == 0) {
-                            LOCCTR += 3;
-                        }
-                        else if (strcmp(line_token[1], "RESW") == 0) {
-                            int operands_len = (int)strtol(line_token[2], NULL, 10);
-                            LOCCTR += (3*operands_len);
-                        }
-                        else if (strcmp(line_token[1], "REWB") == 0) {
-                            int operands_len = (int)strtol(line_token[2], NULL, 10);
-                            LOCCTR += operands_len;
-                        }
-                        else {
-                            error_flag = 1;
-                            break;
-                        }
-                    }
-
-                    // write line to intermediate file
-
-                    symbol_node* symbol = (symbol_node*)malloc(sizeof(symbol_node));
-                    strcpy(symbol->name, line_token[0]);
-                    if(symbol_search(symtab, symbol->name) != -1) {
-                        error_flag = 2;
-                        break;
-                    }
-                    insert_sym(symtab, symbol);
-                }
+            if(pass1(cmd_token[1], optab, symtab, &lines, &LOCCTR, &error_flag) == FAIL) {
+                clear(cmd, cmd_token, tokens);
+                continue;
             }
 
             if(error_flag == 1) {
@@ -542,7 +475,6 @@ int main() {
                 continue;
             }
             // save program length
-            fclose(fp);
         }
         // 해당하는 명령어가 없는 경우 에러 처리
         else {
