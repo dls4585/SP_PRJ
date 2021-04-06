@@ -6,6 +6,7 @@
 #include "sys/stat.h"
 #include "errno.h"
 #include "ctype.h"
+#include <math.h>
 
 /* 정의되는 상수 */
 #define MAX_CMD_LEN 100
@@ -61,6 +62,21 @@ typedef struct bucket {
     int count;
 } bucket;
 
+typedef struct line_node {
+    int line;
+    int LOCCTR;
+    char symbol[30];
+    char mnemonic[30];
+    char operand[2][30];
+    int obj_code;
+    struct line_node* next;
+} line_node;
+
+typedef struct line_list {
+    line_node* head;
+    line_node* tail;
+} line_list;
+
 /* 함수목록 */
 void list_init(List* list);
 Node* create_Node(char cmd_history[4][MAX_CMD_LEN], int i);
@@ -76,15 +92,20 @@ void rtrim(char* cmd);
 int is_lower(char* cmd);
 int is_upper(char* cmd);
 
-int make_opcode_table(bucket* hashtable);
+int optab_init(bucket* hashtable);
 void insert_opcode(bucket* hashtable, hash_node* hash);
 int hash_function(char* field);
-int opcode_search(bucket* hashtable, char* mnemonic);
+hash_node* opcode_search(bucket* hashtable, char* mnemonic);
 
 void replaceTab(char* string);
 
-void make_symbol_table(bucket* symtab);
+void symtab_init(bucket* symtab);
 void insert_sym(bucket* symtab, symbol_node* symbol);
 int symbol_search(bucket* symtab, char* symbol_name);
 
-int pass1(char* filename, bucket* optab, bucket* symtab, int* lines, int* LOCCTR, int* error_flag);
+int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag);
+int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag);
+
+void line_list_init(line_list* list);
+void line_list_push_back(line_list* list, line_node* node);
+line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[], char operand1[], char operand2[]);

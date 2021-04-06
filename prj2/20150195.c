@@ -9,8 +9,8 @@ int main() {
     char cmd_token[4][MAX_CMD_LEN];
     bucket* optab = (bucket*)malloc(sizeof(bucket) * HASH_SIZE);
     bucket* symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
-    make_symbol_table(symtab);
-    if(!make_opcode_table(optab)) {
+    line_list* linelist = (line_list*)malloc(sizeof(line_list));
+    if(!optab_init(optab)) {
         printf("cannot initialize hash table\n");
         return 0;
     }
@@ -370,10 +370,10 @@ int main() {
                 continue;
             }
             // hash table에서 mnemonic 인자에 해당하는 opcode를 찾는다
-            // 실패 시 -1 반환
-            int opcode = opcode_search(optab, cmd_token[1]);
-            if(opcode == -1) {
-                printf("cannot find opcode of %s\n", cmd_token[1]);
+            // 실패 시 NULL 반환
+            hash_node* opcode_node = opcode_search(optab, cmd_token[1]);
+            if(opcode_node == NULL) {
+                printf("cannot find opcode_node of %s\n", cmd_token[1]);
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
@@ -382,7 +382,7 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
 
-            printf("opcode is %X\n", opcode);
+            printf("opcode_node is %X\n", opcode_node->opcode);
 
         }
         // cmd == "opcodelist"
@@ -457,9 +457,11 @@ int main() {
 
             int error_flag = 0;
             int lines = 0;
-            int LOCCTR = 0;
+            int prgm_len = 0;
+            symtab_init(symtab);
+            line_list_init(linelist);
 
-            if(pass1(cmd_token[1], optab, symtab, &lines, &LOCCTR, &error_flag) == FAIL) {
+            if(pass1(cmd_token[1], optab, symtab, linelist, &lines, &prgm_len, &error_flag) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
@@ -475,6 +477,12 @@ int main() {
                 continue;
             }
             // save program length
+
+            if(pass2(cmd_token[1], optab, symtab, linelist, &lines, &prgm_len, &error_flag) == FAIL) {
+                printf("pass2 failed\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
         }
         // 해당하는 명령어가 없는 경우 에러 처리
         else {
