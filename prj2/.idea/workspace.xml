@@ -15,10 +15,8 @@
     <list default="true" id="cc783830-bbf3-4edc-91b2-efa1969cd727" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/20150195.c" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/20150195.h" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/2_5.asm.lst" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/func.c" beforeDir="false" afterPath="$PROJECT_DIR$/func.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/mid_file.txt" beforeDir="false" afterPath="$PROJECT_DIR$/mid_file.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/mid_file.txt" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,7 +92,7 @@
       <workItem from="1617265421687" duration="766000" />
       <workItem from="1617548656313" duration="10953000" />
       <workItem from="1617590771410" duration="28806000" />
-      <workItem from="1617691111258" duration="19345000" />
+      <workItem from="1617691111258" duration="24216000" />
     </task>
     <servers />
   </component>

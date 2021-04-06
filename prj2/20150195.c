@@ -10,7 +10,7 @@ int main() {
     bucket* optab = (bucket*)malloc(sizeof(bucket) * HASH_SIZE);
     bucket* symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
     line_list* linelist = (line_list*)malloc(sizeof(line_list));
-    if(!optab_init(optab)) {
+    if(optab_init(optab) == FAIL) {
         printf("cannot initialize hash table\n");
         return 0;
     }
@@ -43,7 +43,7 @@ int main() {
             // ex. fill 3, 4, 7A
             // 4개 초과인 경우 실패
             if(tokens > 4) {
-                sep_success = 0;
+                sep_success = FAIL;
                 break;
             }
         }
@@ -51,12 +51,12 @@ int main() {
         /*
          ** 명령어의 유효성 검사
          */
-        if(!sep_success) { // 토큰의 개수가 많아 tokenizing에 실패
+        if(sep_success == FAIL) { // 토큰의 개수가 많아 tokenizing에 실패
             printf("Wrong command format, use help for command information\n");
             clear(cmd, cmd_token, tokens);
             continue;
         }
-        if(!is_lower(cmd_token[0])) { // 명령어가 소문자인지 검사
+        if(is_lower(cmd_token[0]) == FAIL) { // 명령어가 소문자인지 검사
             printf("command must be lower case\n");
             clear(cmd, cmd_token, tokens);
             continue;
@@ -209,7 +209,7 @@ int main() {
                 int start = (int)strtol(cmd_token[1], NULL, 16), end;
                 // start의 인자만 들어온 경우
                 if(tokens == 2) {
-                    if(!args_check(cmd_token[1])) {
+                    if(args_check(cmd_token[1]) == FAIL) {
                         clear(cmd, cmd_token, tokens);
                         continue;
                     }
@@ -223,7 +223,7 @@ int main() {
                 // start와 end 인자가 들어온 경우
                 else {
                     end = (int)strtol(cmd_token[2], NULL, 16);
-                    if(!args_check(cmd_token[1]) || !args_check(cmd_token[2])) {
+                    if(args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
                         clear(cmd, cmd_token, tokens);
                         continue;
                     }
@@ -296,7 +296,7 @@ int main() {
         }
         // cmd == "edit" or e
         else if(strcmp(cmd_token[0], "edit") == 0 || strcmp(cmd_token[0], "e") == 0) {
-            if(!cmd_valid_check(tokens, EDIT) || !args_check(cmd_token[1]) || !args_check(cmd_token[2])) {
+            if(!cmd_valid_check(tokens, EDIT) || args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
@@ -318,7 +318,7 @@ int main() {
         }
         // cmd == "fill" or "f"
         else if(strcmp(cmd_token[0], "fill") == 0 || strcmp(cmd_token[0],"f") == 0) {
-            if(!cmd_valid_check(tokens, FILL) || !args_check(cmd_token[1]) || !args_check(cmd_token[2]) || !args_check(cmd_token[3])) {
+            if(!cmd_valid_check(tokens, FILL) || args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL || args_check(cmd_token[3]) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
@@ -364,7 +364,7 @@ int main() {
                 continue;
             }
             // mnemonic 인자가 소문자인 경우 에러 처리
-            if(!is_upper(cmd_token[1])) {
+            if(is_upper(cmd_token[1]) == FAIL) {
                 printf("MNEMONIC must be UPPER case\n");
                 clear(cmd, cmd_token, tokens);
                 continue;

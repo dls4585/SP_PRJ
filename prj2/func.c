@@ -99,13 +99,13 @@ int cmd_valid_check(int tokens, int cmd_case) {
 
 /*
  * 목적 : 명령어 뒤의 인자가 적합한 인자인지 아닌지 검사한다.
- * 리턴값 : valid - 1 / invalid - 0
+ * 리턴값 : valid - 1 / invalid - -1
  */
 int args_check(char* args) {
     // 인자 내에 공백 또는 탭 문자가 없어야 한다.
     if(strstr(args, " ")!= NULL || strstr(args, "\t") != NULL) {
         printf("Wrong arguments, arguments must be in range of 0x0 to 0xFFFFF\n");
-        return 0;
+        return FAIL;
     }
     // 인자는 숫자 또는 대소문자의 영어여야 한다.
     for (int i = 0; i < strlen(args); ++i) {
@@ -113,10 +113,10 @@ int args_check(char* args) {
             continue;
         } else {
             printf("Wrong arguments, arguments must be in range of 0x0 to 0xFFFFF\n");
-            return 0;
+            return FAIL;
         }
     }
-    return 1;
+    return SUCCESS;
 }
 
 /*
@@ -186,33 +186,33 @@ void rtrim(char* cmd) {
 
 /*
  * 목적 : 명령어가 소문자로 이루어져있는지 검사한다.
- * 리턴값 : 검사 통과 - 1 / 소문자가 아닌 글자 발견 - 0
+ * 리턴값 : 검사 통과 - 1 / 소문자가 아닌 글자 발견 - -1
  */
 int is_lower(char* cmd) {
     for (int i = 0; i < strlen(cmd); ++i) {
         if(!islower(cmd[i])){
-            return 0;
+            return FAIL;
         }
     }
-    return 1;
+    return SUCCESS;
 }
 
 /*
  * 목적 : 명령어가 대문자로 이루어져 있는지 검사한다.
- * 리턴값 : 검사 통과 - 1 / 대문자가 아닌 글자 발견 - 0
+ * 리턴값 : 검사 통과 - 1 / 대문자가 아닌 글자 발견 - -1
  */
 int is_upper(char* cmd) {
     for (int i = 0; i < strlen(cmd); ++i) {
         if (!isupper(cmd[i])) {
-            return 0;
+            return FAIL;
         }
     }
-    return 1;
+    return SUCCESS;
 }
 
 /*
  * 목적 : 해쉬테이블 초기화
- * 리턴값 : 초기화 성공 - 1 / 실패 - 0
+ * 리턴값 : 초기화 성공 - 1 / 실패 - -1
  */
 int optab_init(bucket* hashtable) {
     for (int i = 0; i < HASH_SIZE; ++i) {
@@ -223,7 +223,7 @@ int optab_init(bucket* hashtable) {
     FILE* fp = fopen("opcode.txt", "r");
     if(fp == NULL) {
         printf("opcode.txt file does not exist\n");
-        return 0;
+        return FAIL;
     }
     while(1) {
         char line[50];
@@ -250,7 +250,7 @@ int optab_init(bucket* hashtable) {
         }
         if(tokens != 3) {
             printf("file read is going wrong\n");
-            return 0;
+            return FAIL;
         }
 
         // 파일 내의 opcode 와 mnemonic을 해쉬 노드의 멤버 변수로 설정한다.
@@ -273,12 +273,12 @@ int optab_init(bucket* hashtable) {
         insert_opcode(hashtable, hash);
     }
     fclose(fp);
-    return 1;
+    return SUCCESS;
 }
 
 /*
  * 목적 : 해쉬 노드를 해쉬 테이블 내에 삽입한다.
- * 리턴값 : 없
+ * 리턴값 : 없음
  */
 void insert_opcode(bucket* hashtable, hash_node* hash) {
     // 해쉬 함수를 통해 인덱스를 얻는다.
@@ -338,6 +338,10 @@ void replaceTab(char* string) {
     }
 }
 
+/*
+ * 목적 : 해쉬 테이블인 symbol table을 초기화한다.
+ * 리턴값 : 없음
+ */
 void symtab_init(bucket* symtab) {
     for (int i = 0; i < HASH_SIZE; ++i) {
         symtab[i].s_head = NULL;
@@ -345,6 +349,10 @@ void symtab_init(bucket* symtab) {
     }
 }
 
+/*
+ * 목적 : symbol table에 symbol node를 삽입한다.
+ * 입력값 : 없음
+ */
 void insert_sym(bucket* symtab, symbol_node* symbol) {
     int index = hash_function(symbol->name) ;
     if(symtab[index].count == 0) {
@@ -358,6 +366,10 @@ void insert_sym(bucket* symtab, symbol_node* symbol) {
     }
 }
 
+/*
+ * 목적 : symbol table을 순회하며 인자의 symbol name과 일치하는 노드를 찾아 해당 주소값을 반환한다.
+ * 리턴값 : symbol node의 주소값
+ */
 int symbol_search(bucket* symtab, char* symbol_name) {
     int hash_index = hash_function(symbol_name);
     symbol_node* current = symtab[hash_index].s_head;
@@ -368,6 +380,11 @@ int symbol_search(bucket* symtab, char* symbol_name) {
     return FAIL;
 }
 
+/*
+ * 목적 : .asm 파일을 처음으로 읽으며 파싱하여 symbol table을 구성하고,
+ *       .asm 파일의 각 라인의 정보를 담은 line list(doubly linked list)를 구성한다.
+ * 리턴값 : 성공(1) / 실패(-1)
+ */
 int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag){
     FILE* fp = fopen(filename, "r");
     if(fp == NULL) {
@@ -385,11 +402,12 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         int asm_tokens = 0;
         char* asm_ptr;
         char symbol[30]= "\0";
-        char opcode[30]= "\0";
+        char mnemonic[30]= "\0";
         char operand[30]= "\0";
         char operand2[30] = "\0";
         line_node* node;
 
+        // .asm 파일로부터 한 줄씩 읽어들인다.
         fgets(line, 100, fp);
         if(feof(fp)) break;
         *lines+=5;
@@ -397,6 +415,11 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         int len = (int)strlen(line);
         line[len-1] = '\0';
 
+        /*
+         * 주석인 라인의 처리
+         * 해당 라인이 주석일 경우 obj_code와 LOCCTR, operand는 존재하지 않고,
+         * mnemonic 대신 주석의 내용을 넣어준다.
+         */
         if(line[0] == '.') {
             memmove(&line[0], &line[1], strlen(line)-1);
             line[strlen(line)-1] = '\0';
@@ -405,6 +428,11 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             node->obj_code = NONE;
         }
         else {
+            /*
+             * 주석이 아닌 경우의 처리
+             */
+
+            // 읽은 문자열을 토큰화한다.
             asm_ptr = strtok(line, " ");
             while(asm_ptr != NULL) {
                 strcpy(line_token[asm_tokens], asm_ptr);
@@ -412,54 +440,78 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                 asm_ptr = strtok(NULL, ", ");
             }
 
+            // opcode가 BASE인 경우
+            // assemble 명령어가 아닌 BASE 레지스터의 값을 알려주는 용도이므로 LOCCTR이 없도록 처리한다.
             if(strcmp(line_token[0], "BASE") == 0) {
                 node = create_line_node(*lines, NONE, "\0", "BASE", line_token[1], "\0");
                 line_list_push_back(linelist, node);
-//                *line-=5;
                 continue;
             }
 
-            if(asm_tokens == 3) { // label 있음
-                if(opcode_search(optab, line_token[0]) == NULL) { // symbol 이라는 말
-                    strcpy(opcode, line_token[1]);
+            // token이 3개인 경우는
+            // symbol mnemonic operand  또는
+            // mnemonic operand1, operand2 인 경우이다.
+            if(asm_tokens == 3) {
+                // 첫 토큰이 mnemonic이 아니라면 symbol을 갖고 있는 라인으로 처리한다.
+                if(opcode_search(optab, line_token[0]) == NULL) {
+                    strcpy(mnemonic, line_token[1]);
                     strcpy(operand, line_token[2]);
                     strcpy(symbol, line_token[0]);
+
+                    // 새로운 symbol node를 생성하고 초기화한다.
                     symbol_node* symbolNode = (symbol_node*)malloc(sizeof(symbol_node));
                     strcpy(symbolNode->name, symbol);
                     symbolNode->LOCCTR = LOCCTR;
+
+                    // 이미 있는 symbol이라면 중복된 symbol 정의이므로 에러 처리한다.
                     if(symbol_search(symtab, symbolNode->name) != -1) {
+                        free(symbolNode);
                         *error_flag = 2;
                         break;
                     }
+                    // 새로운 symbol을 symbol table에 삽입한다.
                     insert_sym(symtab, symbolNode);
                 }
-                else { // operand 가 두개
-                    strcpy(opcode, line_token[0]);
+                else {
+                    // symbol이 없고, operand가 2개이므로 이에 맞게 값을 복사한다.
+                    strcpy(mnemonic, line_token[0]);
                     strcpy(operand, line_token[1]);
                     strcpy(operand2, line_token[2]);
                 }
             }
+            // token이 2개인 경우는 mnemonic operand의 형식이므로것
+            // symbol이 없고 operand가 하나인 으로 처리한다.
             else if(asm_tokens == 2) {
-                strcpy(symbol, "\0");
-                strcpy(opcode, line_token[0]);
+                strcpy(mnemonic, line_token[0]);
                 strcpy(operand, line_token[1]);
             }
+            // token이 1개인 경우는
+            // mnemonic만 있는 경우 이므로 이에 맞게 처리한다.
             else {
-                strcpy(opcode, line_token[0]);
+                strcpy(mnemonic, line_token[0]);
             }
 
-            if(strcmp(opcode, "END") == 0);
-            else if(strcmp(opcode, "START") == 0) {
+            /*
+             * LOCCTR의 계산
+             */
+            if(strcmp(mnemonic, "END") == 0); // END의 경우 아무런 처리를 하지 않는다.
+            // START의 경우, 해당 프로그램의 시작주소를 알리는 것이므로 다음 라인의 주소값 또한 동일하게 설정한다.
+            else if(strcmp(mnemonic, "START") == 0) {
                 LOCCTR = (int)strtol(operand, NULL, 10);
                 start_addr = LOCCTR;
                 nextLOCCTR = LOCCTR;
             }
-            else if(opcode[0] == '+') {
+            // extended format 을 사용하는 경우
+            // instruction format 4를 사용하고, 이는 4바이트이므로 다음 주소값은 4바이트를 증가시킨다.
+            else if(mnemonic[0] == '+') {
                 nextLOCCTR += 4;
             }
+            // 이 외의 경우 mnemonic에 해당하는 format에 따라 계산한다.
             else {
                 hash_node* opcode_node;
-                if((opcode_node = opcode_search(optab, opcode)) != NULL) {
+                // optab에 존재하는 mnemonic의 경우
+                // 해당 format에 맞는 바이트만큼 증가시킨다.
+                if((opcode_node = opcode_search(optab, mnemonic)) != NULL) {
                     if(opcode_node->format[0] == 1) {
                         nextLOCCTR += 1;
                     }
@@ -470,48 +522,67 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                         nextLOCCTR += 3;
                     }
                 }
-                else if (strcmp(opcode, "RESW") == 0) {
+
+                /*
+                 * assember directive의 경우 해당 operand에 맞는 바이트 수를 증가시킨다.
+                 */
+                else if (strcmp(mnemonic, "RESW") == 0) {
                     int operands_len = (int)strtol(operand, NULL, 10);
-                    nextLOCCTR += (3*operands_len);
+                    nextLOCCTR += (3*operands_len); // operand로 들어온 값 * 3(word의 크기) 만큼 증가시킨다
                 }
-                else if (strcmp(opcode, "RESB") == 0) {
+                else if (strcmp(mnemonic, "RESB") == 0) {
                     int operands_len = (int)strtol(operand, NULL, 10);
-                    nextLOCCTR += operands_len;
+                    nextLOCCTR += operands_len; // operand로 들어온 값만큼 증가시킨다.
                 }
-                else if (strcmp(opcode, "BYTE") == 0) {
+                else if (strcmp(mnemonic, "BYTE") == 0) {
                     if(operand[0] == 'C') {
                         int operands_len = (int)strlen(operand);
-                        nextLOCCTR += (operands_len-3);
+                        nextLOCCTR += (operands_len-3); // character의 경우 한 자리가 한 바이트이므로 그 길이만큼 증가시킨다.
                     }
                     else if (operand[0] == 'X') {
                         int oplen = (int)strlen(operand)-3;
-                        nextLOCCTR += (int)ceil(oplen/(double)2.0);
+                        nextLOCCTR += (int)ceil(oplen/(double)2.0); // hex의 경우 두 자리가 한 바이트이므로 그만큼 증가시킨다.
                     }
-
                 }
+                else if(strcmp(mnemonic, "WORD") == 0) { // word의 경우 operand의 크기에 맞는 값을 증가시킨다.
+                    int op = (int)strtol(operand, NULL, 10);
+                    if(op <= 0xFF) {
+                        nextLOCCTR += 1;
+                    }
+                    else if(op <= 0xFFFF) {
+                        nextLOCCTR += 2;
+                    }
+                    else if(op <= 0xFFFFFF) {
+                        nextLOCCTR += 3;
+                    }
+                }
+                // 해당하는 case가 없는 경우 에러 처리한다.
                 else {
                     *error_flag = 1;
                     break;
                 }
             }
-            node = create_line_node(*lines, LOCCTR, symbol, opcode, operand, operand2);
-
+            // 계산한 LOCCTR 등의 정보를 바탕으로 line node를 생성한다.
+            node = create_line_node(*lines, LOCCTR, symbol, mnemonic, operand, operand2);
         }
-
+        // line list에 추가한다.
         line_list_push_back(linelist, node);
 
+        // LOCCTR를 다음 줄로 이동시킨다.
         LOCCTR = nextLOCCTR;
     }
+
+    // linelist->tail == "END"
+    // 그 이전의 노드의 LOCCTR에서 시작 주소를 빼서 프로그램의 길이를 계산한다.
     *prgm_len = linelist->tail->prev->LOCCTR - start_addr;
     fclose(fp);
-    FILE* mid_file = fopen("mid_file.txt", "w");
-    for (line_node* current = linelist->head; current != NULL ; current = current->next) {
-        fprintf(mid_file, "%d\t%04X\t%s\t%s\t%s\t%s\n", current->line, current->LOCCTR, current->symbol, current->mnemonic, current->operand[0], current->operand[1]);
-    }
-    fclose(mid_file);
     return SUCCESS;
 }
 
+/*
+ * 목적 : pass1에서 구성한 linelist를 순회하며 object code를 계산하고, .lst / .obj 파일을 작성한다.
+ * 리턴값 : 성공(1) / 실패(-1)
+ */
 int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* prgm_len) {
     char obj_file[30];
     char lst_file[30];
@@ -528,32 +599,37 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         int target_addr = 0;
         int b=0,p=0,x=0,e=0,n=0,i=0;
 
-        char opcode[100];
+        char mnemonic[100];
         char symbol[30];
         char operand[30];
         char operand2[30];
 
-        int is_opcode_byte = 0;
+        int is_mnemonic_byte = 0;
 
-        strcpy(opcode, current->mnemonic);
+        strcpy(mnemonic, current->mnemonic);
         strcpy(symbol, current->symbol);
         strcpy(operand, current->operand[0]);
         strcpy(operand2, current->operand[1]);
-        if(strcmp(opcode, "END") == 0) {
+
+        // line list의 마지막이므로 obj code와 locctr을 없는 것으로 설정하고 반복문을 탈출한다.
+        if(strcmp(mnemonic, "END") == 0) {
             current->obj_code = NONE;
             current->LOCCTR = NONE;
-//            printf("%04d\t%04X\t%s\t%s\t%s\t%s\t%06X\n", current->line, current->LOCCTR, current->symbol,current->mnemonic, current->operand[0],
-//                   current->operand[1], obj_code);
             break;
         }
+        // PC는 해당 라인의 다음 줄로 설정된다.
         pc = current->next->LOCCTR;
-        if(strcmp(opcode, "START") != 0 && pc == NONE) {
+        if(strcmp(mnemonic, "START") != 0 && pc == NONE) {
             pc = current->next->next->LOCCTR;
         }
+
         if(operand[strlen(operand)-1] == ',') {
             operand[strlen(operand)-1] = '\0';
         }
 
+        /*
+         * nixe 비트 설정
+         */
         // set x bit
         if(strcmp(operand2, "X") == 0) {
             x = 1;
@@ -563,8 +639,8 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         if(current->mnemonic[0] == '+') {
             format = 4;
             e = 1;
-            memmove(&opcode[0], &opcode[1], strlen(opcode)-1);
-            opcode[strlen(opcode)-1] = '\0'; // + 제거
+            memmove(&mnemonic[0], &mnemonic[1], strlen(mnemonic) - 1);
+            mnemonic[strlen(mnemonic) - 1] = '\0'; // + 제거
         }
 
         // set n, i bit
@@ -579,13 +655,18 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             operand[strlen(operand)-1] = '\0'; // @ 제거
         }
         else {
-            i = 1; n = 1;
+            i = 1; n = 1; // simple
         }
 
-        if(strcmp(opcode, "LDB") == 0) {
+        /*
+         * BASE 레지스터 관련 처리
+         */
+        // LDB 의 경우 base 레지스터를 설정해준다.
+        if(strcmp(mnemonic, "LDB") == 0) {
             base = symbol_search(symtab, operand);
         }
-        else if(strcmp(opcode, "BASE") == 0){
+        // base의 경우 assembly directive 이므로 넘어간다.
+        else if(strcmp(mnemonic, "BASE") == 0){
             current->obj_code = NONE;
             current = current->next;
             continue;
@@ -593,30 +674,35 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
 
         hash_node* opcode_node;
 
-        if(strcmp(opcode, "START") == 0) {
+        /*
+         * Target Address 계산
+         */
+        // start의 경우 assembly directive 이므로 넘어간다.
+        if(strcmp(mnemonic, "START") == 0) {
             current->obj_code = NONE;
             current = current->next;
             continue;
         }
-        else if((opcode_node = opcode_search(optab, opcode)) == NULL) {
-            if(strcmp(opcode, "BYTE") == 0) {
-                is_opcode_byte = 1;
-                if(operand[0] == 'C') {
+        // optab에 존재하지 않는 mnemonic 인 경우
+        else if((opcode_node = opcode_search(optab, mnemonic)) == NULL) {
+            if(strcmp(mnemonic, "BYTE") == 0) {
+                is_mnemonic_byte = 1;
+                if(operand[0] == 'C') { // character의 경우
                     for(int j=2; j<strlen(operand)-1; j++) {
                         target_addr += (int)operand[j];
-                        target_addr = target_addr << 8;
+                        target_addr = target_addr << 8; // 한 글자(한 바이트)씩 왼쪽으로 shift한다.
                     }
                     target_addr = target_addr >> 8;
                 }
-                else if(operand[0] == 'X') {
+                else if(operand[0] == 'X') { // hex의 경우
                     memmove(&operand[0], &operand[2], strlen(operand)-2);
                     operand[strlen(operand)-3] = '\0';
                     for (int j = 0; j < strlen(operand); ++j) {
-                        if(operand[j] > 'F' || operand[j] < '0') {
+                        if(operand[j] > 'F' || operand[j] < '0') { // 인자의 '0~F' 범위 처리
                             return FAIL;
                         }
                     }
-                    target_addr = (int)strtol(operand, NULL, 16);
+                    target_addr = (int)strtol(operand, NULL, 16); // 해당 operand의 크기만큼 target address로 계산한다.
                 }
             }
             else {
@@ -625,10 +711,11 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                 continue;
             }
         }
-        else { // asm 명령어인 경우
+        else { // optab에 존재하는 mnemonic인 경우
             obj_code = opcode_node->opcode;
-            if((target_addr = symbol_search(symtab, operand)) == FAIL) { // symbol이 아님
+            if((target_addr = symbol_search(symtab, operand)) == FAIL) { // operand가 symbol이 아니면
                 target_addr = (int)strtol(operand, NULL, 10);
+                // 레지스터인 경우 레지스터에 맞는 값을 target addr로 설정한다.
                 if(strcmp(operand, "A") == 0) {
                     strcpy(operand,"0");
                 }
@@ -660,6 +747,7 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                 if(strlen(operand2) == 0) {
                     strcpy(operand2, "0");
                 }
+                // operand가 2개인 경우도 위와 같이 설정한다.
                 else {
                     if(strcmp(operand2, "A") == 0) {
                         strcpy(operand2, "0");
@@ -689,8 +777,12 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                         strcpy(operand2, "6");
                     }
                 }
+
             }
             else {
+                /*
+                 * pc / base bit set
+                 */
                 int TAP = target_addr - pc;
                 int TAB = target_addr - base;
                 if(TAP <= 2047 && TAP >= -2048) { // pc relative
@@ -701,7 +793,7 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     b = 1; p = 0;
                     target_addr -= base;
                 }
-                else {
+                else { // extended, need to be modified
                     current->mod_bit = 1;
                     b = 0; p = 0;
                     e = 1;
@@ -709,12 +801,16 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             }
         }
 
-        if(is_opcode_byte == 1) {
+        if(is_mnemonic_byte == 1) {
             obj_code = target_addr;
         }
         else {
+            // shift 연산을 통해 xbpe로 구성된 한 바이트를 만든다.
             int xbpe = (x << 3) | (b << 2) | (p << 1) | e;
 
+            /*
+             * format에 맞게 xbpe, obj_code, target_addr를 시프트하여 object code를 계산한다.
+             */
             if(format == 4 || e == 1) {
                 obj_code = obj_code | (n << 1) | i;
                 obj_code = obj_code << 24;
@@ -745,6 +841,9 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         current = current->next;
     }
 
+    /*
+     * .lst, .obj 파일 작성
+     */
     if(write_lst_file(linelist, lst_file) == FAIL) {
         return FAIL;
     }
@@ -756,11 +855,19 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
 }
 
 
-
+/*
+ * 목적 : .asm 파일의 각 라인 정보를 담은 노드의 doubly linked list인 line_list를 초기화한다.
+ * 리턴값 : 없음
+ */
 void line_list_init(line_list* list) {
     list->head = NULL;
     list->tail = NULL;
 }
+
+/*
+ * 목적 : line_list의 맨 마지막에 노드를 삽입한다.
+ * 리턴값 : 없음
+ */
 void line_list_push_back(line_list* list, line_node* node) {
     if(list->head == NULL && list->tail == NULL) {
         list->head = list->tail = node;
@@ -772,6 +879,11 @@ void line_list_push_back(line_list* list, line_node* node) {
         list->tail = node;
     }
 }
+
+/*
+ * 목적 : 인자로 들어온 정보를 바탕으로 line_node를 생성한다.
+ * 리턴값 : 생성된 line_node의 pointer
+ */
 line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[], char operand1[], char operand2[]) {
     line_node* node = (line_node*)malloc(sizeof(line_node));
     node->line = line;
@@ -787,6 +899,10 @@ line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[]
     return node;
 }
 
+/*
+ * 목적 : pass2에서 완성한 line_list를 바탕으로 .lst 파일을 작성한다.
+ * 리턴값 : 성공(1) / 실패(-1)
+ */
 int write_lst_file(line_list* linelist, char* filename) {
     FILE* fp = fopen(filename, "w");
     if(fp == NULL) {
@@ -797,17 +913,31 @@ int write_lst_file(line_list* linelist, char* filename) {
 
     while(current != NULL) {
 
+        /*
+         * line number를 출력
+         */
         fprintf(fp, "%4d  ", current->line);
+
+        /*
+         * LOCCTR가 존재하면 출력
+         * 아니면 공백 확보
+         */
         if(current->LOCCTR != NONE) {
             fprintf(fp, "%04X    ", current->LOCCTR);
         }
         else {
             fprintf(fp, "%8s", "\0");
         }
+
+        /*
+         * symbol과 mnemonic 출력
+         */
         fprintf(fp, "%-8s  ", current->symbol);
         fprintf(fp, "%-8s  ", current->mnemonic);
 
-
+        /*
+         * operand 출력
+         */
         fprintf(fp, "%-8s", current->operand[0]);
         if(strlen(current->operand[1]) == 0) {
             fprintf(fp, "%8s", "\0");
@@ -822,6 +952,7 @@ int write_lst_file(line_list* linelist, char* filename) {
             }
         }
 
+        // object code 출력
         if(current->obj_code != NONE) {
             fprintf(fp, "%06X", current->obj_code);
         }
@@ -834,6 +965,10 @@ int write_lst_file(line_list* linelist, char* filename) {
     return SUCCESS;
 }
 
+/*
+ * 목적 : pass2에서 완성한 line_list를 바탕으로 .obj 파일을 작성한다.
+ * 리턴값 : 성공(1) / 실패(-1)
+ */
 int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
     FILE* fp = fopen(filename, "w");
     if(fp == NULL) {
@@ -849,12 +984,21 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
     int mod_line_flag = 0;
     char obj_code[70] = "\0";
     line_node* current = linelist->head;
+
+
     while(current != NULL) {
         int line_len = 0;
+        /*
+         * START의 경우 Header Record 출력
+         */
         if(strcmp(current->mnemonic, "START") == 0) {
             start_addr = (int)strtol(current->operand[0], NULL, 16);
             fprintf(fp, "H%-6s%06X%06X\n", current->symbol, start_addr, *prgm_len);
         }
+        /*
+         * End 의 경우 만든 obj_code들을 출력
+         * modification record가 시작해야 하므로 해당 flag를 set한다.
+         */
         else if(strcmp(current->mnemonic, "END") == 0) {
             fprintf(fp, "%02X", byte_cnt);
             fprintf(fp, "%s\n", obj_code);
@@ -862,6 +1006,11 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
             mod_line_flag = 1;
             new_line_flag = 0;
         }
+        /*
+         * RESB, RESB를 만나면
+         * 만들어놓은 obj_code 가 있으면 출력한다.
+         * 개행을 위해 new_line_flag를 set한다.
+         */
         else if(strcmp(current->mnemonic, "RESB") == 0 || strcmp(current->mnemonic, "RESW") == 0) {
             if(strlen(obj_code) > 0) {
                 fprintf(fp, "%02X", byte_cnt);
@@ -872,16 +1021,28 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
             byte_cnt = 0;
         }
         else if(current->obj_code == NONE);
+        /*
+         * new_line_flag가 set되면
+         * 새로운 Text Record를 시작한다.
+         */
         else if(new_line_flag) {
             fprintf(fp, "T%06X", current->LOCCTR);
             line_start_addr = current->LOCCTR;
             new_line_flag = 0;
             continue;
         }
+        /*
+         * 이 외의 경우 obj_code를 만든다.
+         */
         else {
+            // modification bit가 1이면
+            // modification record에 사용해야하므로 해당 배열에 주소를 저장한다.
             if(current->mod_bit == 1) {
                 mod_byte_array[mod_byte_cnt++] = current->LOCCTR;
             }
+            /*
+             * 해당 라인의 object code의 범위에 맞게 출력한다.
+             */
             if(current->obj_code <= 0xFF) {
                 sprintf(obj_code, "%s%02X", obj_code, current->obj_code);
             }
@@ -892,6 +1053,9 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
                 sprintf(obj_code, "%s%06X", obj_code, current->obj_code);
             }
 
+            /*
+             * Text Record에 적히는 라인의 길이(바이트의 수) 계산
+             */
             int next_bytes;
             line_node* node = current->next;
             if(node->next != NULL) {
@@ -903,7 +1067,9 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
                 do {
                     node = node->next;
                 }while(node->LOCCTR == NONE && node->next != NULL);
-            } else {
+            }
+            // current node가 END 직전의 노드일 때
+            else {
                 if(current->obj_code <= 0xFF) {
                     byte_cnt+=1;
                 }
@@ -918,6 +1084,7 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
                 }
             }
 
+            // current node가 END 직전의 노드일 때 next_bytes 계산
             if(node == linelist->tail) {
                 node = node->prev;
                 if(node->obj_code <= 0xFF) {
@@ -933,10 +1100,14 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
                     next_bytes = 4;
                 }
             }
-            else {
+            else { // 이 외의 경우 다다음 라인의 LOCCTR에서 다음 라인의 LOCCTR을 빼면 다음 라인의 bytes 수가 된다.
                 next_bytes = node->LOCCTR - next_bytes;
             }
 
+            /*
+             * 현재까지의 bytes와 다음 라인의 bytes를 더했을 때 0x1E를 넘어가면 현재까지만 출력한다
+             * 개행을 위해 flag를 set한다.
+             */
             if(byte_cnt + next_bytes > 0x1E) {
                 fprintf(fp, "%02X", byte_cnt);
                 fprintf(fp, "%s\n", obj_code);
@@ -947,11 +1118,18 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
         }
         current = current->next;
     }
+
+    /*
+     * modification record
+     * 현재는 5 half bytes인 경우만 존재하므로 05를 출력
+     */
     if(mod_line_flag) {
         for (int i = 0; i < mod_byte_cnt; ++i) {
             fprintf(fp, "M%06X05\n", mod_byte_array[i]+1);
         }
     }
+
+    // END record 출력
     fprintf(fp, "E%06X\n", start_addr);
     fclose(fp);
     return SUCCESS;
