@@ -16,6 +16,8 @@
 #define SUCCESS 1
 #define FAIL -1
 
+#define NONE -1
+
 #define QUIT 0
 #define HELP 1
 #define DIRECTORY 2
@@ -28,9 +30,8 @@
 #define OPLIST 9
 #define TYPE 10
 #define ASSEMBLE 11
+#define SYMBOL 12
 
-#define OPCODE 0
-#define SYMBOL 1
 
 /* 정의되는 구조체 */
 typedef struct node {
@@ -66,9 +67,11 @@ typedef struct line_node {
     int line;
     int LOCCTR;
     char symbol[30];
-    char mnemonic[30];
+    char mnemonic[100];
     char operand[2][30];
     int obj_code;
+    int mod_bit;
+    struct line_node* prev;
     struct line_node* next;
 } line_node;
 
@@ -104,8 +107,11 @@ void insert_sym(bucket* symtab, symbol_node* symbol);
 int symbol_search(bucket* symtab, char* symbol_name);
 
 int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag);
-int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag);
+int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* prgm_len);
 
 void line_list_init(line_list* list);
 void line_list_push_back(line_list* list, line_node* node);
 line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[], char operand1[], char operand2[]);
+
+int write_lst_file(line_list* list, char* filename);
+int write_obj_file(line_list* list, char* filename, const int* prgm_len);

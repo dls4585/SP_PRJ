@@ -59,6 +59,7 @@ int cmd_valid_check(int tokens, int cmd_case) {
         case HISTORY: // history
         case RESET: // reset
         case OPLIST: // opcodelist
+        case SYMBOL:
             if(tokens > 1) {
                 printf("Wrong command format, use help for command information\n");
                 return 0;
@@ -383,9 +384,9 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         char line_token[3][30];
         int asm_tokens = 0;
         char* asm_ptr;
-        char symbol[30];
-        char opcode[30];
-        char operand[30];
+        char symbol[30]= "\0";
+        char opcode[30]= "\0";
+        char operand[30]= "\0";
         char operand2[30] = "\0";
         line_node* node;
 
@@ -397,21 +398,24 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         line[len-1] = '\0';
 
         if(line[0] == '.') {
-            strcpy(opcode, ".");
-            node = create_line_node(*lines, 0, ".", ".", ".", ".");
+            memmove(&line[0], &line[1], strlen(line)-1);
+            line[strlen(line)-1] = '\0';
+            ltrim(line);
+            node = create_line_node(*lines, NONE, ".", line, "\0", "\0");
+            node->obj_code = NONE;
         }
         else {
             asm_ptr = strtok(line, " ");
             while(asm_ptr != NULL) {
                 strcpy(line_token[asm_tokens], asm_ptr);
                 asm_tokens++;
-                asm_ptr = strtok(NULL, " ");
+                asm_ptr = strtok(NULL, ", ");
             }
 
             if(strcmp(line_token[0], "BASE") == 0) {
-                node = create_line_node(*lines, 0, "\0", "BASE", line_token[1], "\0");
+                node = create_line_node(*lines, NONE, "\0", "BASE", line_token[1], "\0");
                 line_list_push_back(linelist, node);
-                *line-=5;
+//                *line-=5;
                 continue;
             }
 
@@ -480,9 +484,7 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                         nextLOCCTR += (operands_len-3);
                     }
                     else if (operand[0] == 'X') {
-                        memmove(&operand[0], &operand[2], strlen(operand) - 2);
-                        operand[strlen(operand)-3] = '\0';
-                        int oplen = (int)strlen(operand);
+                        int oplen = (int)strlen(operand)-3;
                         nextLOCCTR += (int)ceil(oplen/(double)2.0);
                     }
 
@@ -500,7 +502,7 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
 
         LOCCTR = nextLOCCTR;
     }
-    *prgm_len = LOCCTR - start_addr;
+    *prgm_len = linelist->tail->prev->LOCCTR - start_addr;
     fclose(fp);
     FILE* mid_file = fopen("mid_file.txt", "w");
     for (line_node* current = linelist->head; current != NULL ; current = current->next) {
@@ -510,22 +512,14 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
     return SUCCESS;
 }
 
-int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* lines, int* prgm_len, int* error_flag) {
+int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, int* prgm_len) {
     char obj_file[30];
     char lst_file[30];
+    filename[strlen(filename)-4] = '\0';
     sprintf(obj_file, "%s.obj", filename);
     sprintf(lst_file, "%s.lst", filename);
-    FILE* obj_fp = fopen(obj_file, "w");
-    FILE* lst_fp = fopen(lst_file, "w");
-    if(obj_fp == NULL) {
-        printf("cannot open file .obj file\n");
-        return FAIL;
-    }
-    if(lst_fp == NULL) {
-        printf("cannot open file .lst file\n");
-        return FAIL;
-    }
-    char obj_line[70];
+
+
     int base = 0;
     int pc = 0;
     line_node* current = linelist->head;
@@ -533,22 +527,31 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         int obj_code = 0, format = 0;
         int target_addr = 0;
         int b=0,p=0,x=0,e=0,n=0,i=0;
-        int asm_tokens = 0;
-        char* asm_ptr;
-        char opcode[30];
+
+        char opcode[100];
         char symbol[30];
         char operand[30];
         char operand2[30];
+
         int is_opcode_byte = 0;
 
-        strcpy(symbol, current->symbol);
         strcpy(opcode, current->mnemonic);
+        strcpy(symbol, current->symbol);
         strcpy(operand, current->operand[0]);
         strcpy(operand2, current->operand[1]);
-        if(strcmp(current->mnemonic, "END") == 0) break;
+        if(strcmp(opcode, "END") == 0) {
+            current->obj_code = NONE;
+            current->LOCCTR = NONE;
+//            printf("%04d\t%04X\t%s\t%s\t%s\t%s\t%06X\n", current->line, current->LOCCTR, current->symbol,current->mnemonic, current->operand[0],
+//                   current->operand[1], obj_code);
+            break;
+        }
         pc = current->next->LOCCTR;
-        if(strcmp(opcode, "START") != 0 && pc == 0) {
+        if(strcmp(opcode, "START") != 0 && pc == NONE) {
             pc = current->next->next->LOCCTR;
+        }
+        if(operand[strlen(operand)-1] == ',') {
+            operand[strlen(operand)-1] = '\0';
         }
 
         // set x bit
@@ -583,6 +586,7 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             base = symbol_search(symtab, operand);
         }
         else if(strcmp(opcode, "BASE") == 0){
+            current->obj_code = NONE;
             current = current->next;
             continue;
         }
@@ -590,12 +594,9 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         hash_node* opcode_node;
 
         if(strcmp(opcode, "START") == 0) {
-            printf("H%6s%6X%6X\n", current->symbol, current->LOCCTR, *prgm_len);
-            printf("%4d\t%4X\t%s\t%s\t%s\n", current->line, current->LOCCTR, current->symbol,current->mnemonic, current->operand[0]);
+            current->obj_code = NONE;
             current = current->next;
             continue;
-//            fprintf(lst_fp, "%4d\t%4X\t%s\t%s\t%s\n", current->line, current->LOCCTR, current->symbol,current->mnemonic, current->operand[0]);
-//            fprintf(obj_fp, "H%6s%6X%6X\n", current->symbol, current->LOCCTR, *prgm_len);
         }
         else if((opcode_node = opcode_search(optab, opcode)) == NULL) {
             if(strcmp(opcode, "BYTE") == 0) {
@@ -610,10 +611,16 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                 else if(operand[0] == 'X') {
                     memmove(&operand[0], &operand[2], strlen(operand)-2);
                     operand[strlen(operand)-3] = '\0';
+                    for (int j = 0; j < strlen(operand); ++j) {
+                        if(operand[j] > 'F' || operand[j] < '0') {
+                            return FAIL;
+                        }
+                    }
                     target_addr = (int)strtol(operand, NULL, 16);
                 }
             }
             else {
+                current->obj_code = NONE;
                 current = current->next;
                 continue;
             }
@@ -654,31 +661,31 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     strcpy(operand2, "0");
                 }
                 else {
-                    if(strcmp(operand, "A") == 0) {
+                    if(strcmp(operand2, "A") == 0) {
                         strcpy(operand2, "0");
                     }
-                    else if(strcmp(operand, "X") == 0) {
+                    else if(strcmp(operand2, "X") == 0) {
                         strcpy(operand2, "1");
                     }
-                    else if(strcmp(operand, "L") == 0) {
+                    else if(strcmp(operand2, "L") == 0) {
                         strcpy(operand2, "2");
                     }
-                    else if(strcmp(operand, "PC") == 0) {
+                    else if(strcmp(operand2, "PC") == 0) {
                         strcpy(operand2, "8");
                     }
-                    else if(strcmp(operand, "SW") == 0) {
+                    else if(strcmp(operand2, "SW") == 0) {
                         strcpy(operand2, "9");
                     }
-                    else if(strcmp(operand, "B") == 0) {
+                    else if(strcmp(operand2, "B") == 0) {
                         strcpy(operand2, "3");
                     }
-                    else if(strcmp(operand, "S") == 0) {
+                    else if(strcmp(operand2, "S") == 0) {
                         strcpy(operand2, "4");
                     }
-                    else if(strcmp(operand, "T") == 0) {
+                    else if(strcmp(operand2, "T") == 0) {
                         strcpy(operand2, "5");
                     }
-                    else if(strcmp(operand, "F") == 0) {
+                    else if(strcmp(operand2, "F") == 0) {
                         strcpy(operand2, "6");
                     }
                 }
@@ -695,10 +702,10 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     target_addr -= base;
                 }
                 else {
+                    current->mod_bit = 1;
                     b = 0; p = 0;
                     e = 1;
                 }
-
             }
         }
 
@@ -734,12 +741,17 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             }
         }
 
-        printf("%04d\t%04X\t%s\t%s\t%s\t%s\t%06X\n", current->line, current->LOCCTR, current->symbol,current->mnemonic, current->operand[0],
-               current->operand[1], obj_code);
+        current->obj_code = obj_code;
         current = current->next;
     }
-    fclose(obj_fp);
-    fclose(lst_fp);
+
+    if(write_lst_file(linelist, lst_file) == FAIL) {
+        return FAIL;
+    }
+    if(write_obj_file(linelist, obj_file, prgm_len) == FAIL) {
+        return FAIL;
+    }
+
     return SUCCESS;
 }
 
@@ -755,6 +767,7 @@ void line_list_push_back(line_list* list, line_node* node) {
     }
         // 리스트에 노드가 있을 때 제일 마지막 노드 뒤에 추가한다.
     else {
+        node->prev = list->tail;
         list->tail->next = node;
         list->tail = node;
     }
@@ -768,6 +781,178 @@ line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[]
     strcpy(node->operand[0], operand1);
     strcpy(node->operand[1], operand2);
     node->obj_code = 0;
+    node->mod_bit = 0;
+    node->prev = NULL;
     node->next = NULL;
     return node;
+}
+
+int write_lst_file(line_list* linelist, char* filename) {
+    FILE* fp = fopen(filename, "w");
+    if(fp == NULL) {
+        printf("cannot open lst file to write\n");
+        return FAIL;
+    }
+    line_node* current = linelist->head;
+
+    while(current != NULL) {
+
+        fprintf(fp, "%4d  ", current->line);
+        if(current->LOCCTR != NONE) {
+            fprintf(fp, "%04X    ", current->LOCCTR);
+        }
+        else {
+            fprintf(fp, "%8s", "\0");
+        }
+        fprintf(fp, "%-8s  ", current->symbol);
+        fprintf(fp, "%-8s  ", current->mnemonic);
+
+
+        fprintf(fp, "%-8s", current->operand[0]);
+        if(strlen(current->operand[1]) == 0) {
+            fprintf(fp, "%8s", "\0");
+        }
+        else {
+            int len = 8 - (int)strlen(current->operand[0]);
+            fseek(fp, -1*len, SEEK_CUR);
+
+            fprintf(fp, ", %-6s", current->operand[1]);
+            for (int i = 0; i < 8-strlen(current->operand[0]); ++i) {
+                fprintf(fp, " ");
+            }
+        }
+
+        if(current->obj_code != NONE) {
+            fprintf(fp, "%06X", current->obj_code);
+        }
+
+        fprintf(fp, "\n");
+        current = current->next;
+    }
+
+    fclose(fp);
+    return SUCCESS;
+}
+
+int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
+    FILE* fp = fopen(filename, "w");
+    if(fp == NULL) {
+        printf("cannot open obj file to write\n");
+        return FAIL;
+    }
+    int* mod_byte_array = (int*)malloc(sizeof(int)*(linelist->tail->line / 5));
+    int mod_byte_cnt = 0;
+    int byte_cnt = 0;
+    int line_start_addr = 0;
+    int start_addr = 0;
+    int new_line_flag = 1;
+    int mod_line_flag = 0;
+    char obj_code[70] = "\0";
+    line_node* current = linelist->head;
+    while(current != NULL) {
+        int line_len = 0;
+        if(strcmp(current->mnemonic, "START") == 0) {
+            start_addr = (int)strtol(current->operand[0], NULL, 16);
+            fprintf(fp, "H%-6s%06X%06X\n", current->symbol, start_addr, *prgm_len);
+        }
+        else if(strcmp(current->mnemonic, "END") == 0) {
+            fprintf(fp, "%02X", byte_cnt);
+            fprintf(fp, "%s\n", obj_code);
+            strcpy(obj_code, "\0");
+            mod_line_flag = 1;
+            new_line_flag = 0;
+        }
+        else if(strcmp(current->mnemonic, "RESB") == 0 || strcmp(current->mnemonic, "RESW") == 0) {
+            if(strlen(obj_code) > 0) {
+                fprintf(fp, "%02X", byte_cnt);
+                fprintf(fp, "%s\n", obj_code);
+                strcpy(obj_code, "\0");
+            }
+            new_line_flag = 1;
+            byte_cnt = 0;
+        }
+        else if(current->obj_code == NONE);
+        else if(new_line_flag) {
+            fprintf(fp, "T%06X", current->LOCCTR);
+            line_start_addr = current->LOCCTR;
+            new_line_flag = 0;
+            continue;
+        }
+        else {
+            if(current->mod_bit == 1) {
+                mod_byte_array[mod_byte_cnt++] = current->LOCCTR;
+            }
+            if(current->obj_code <= 0xFF) {
+                sprintf(obj_code, "%s%02X", obj_code, current->obj_code);
+            }
+            else if(current->obj_code <= 0xFFFF) {
+                sprintf(obj_code, "%s%04X", obj_code, current->obj_code);
+            }
+            else {
+                sprintf(obj_code, "%s%06X", obj_code, current->obj_code);
+            }
+
+            int next_bytes;
+            line_node* node = current->next;
+            if(node->next != NULL) {
+                while(node->LOCCTR == NONE){
+                    node = node->next;
+                }
+                byte_cnt += node->LOCCTR - current->LOCCTR;
+                next_bytes = node->LOCCTR;
+                do {
+                    node = node->next;
+                }while(node->LOCCTR == NONE && node->next != NULL);
+            } else {
+                if(current->obj_code <= 0xFF) {
+                    byte_cnt+=1;
+                }
+                else if(current->obj_code <= 0xFFFF) {
+                    byte_cnt+=2;
+                }
+                else if(current->obj_code <= 0xFFFFFF) {
+                    byte_cnt+=3;
+                }
+                else {
+                    byte_cnt+=4;
+                }
+            }
+
+            if(node == linelist->tail) {
+                node = node->prev;
+                if(node->obj_code <= 0xFF) {
+                    next_bytes = 1;
+                }
+                else if(node->obj_code <= 0xFFFF) {
+                    next_bytes = 2;
+                }
+                else if(node->obj_code <= 0xFFFFFF) {
+                    next_bytes = 3;
+                }
+                else {
+                    next_bytes = 4;
+                }
+            }
+            else {
+                next_bytes = node->LOCCTR - next_bytes;
+            }
+
+            if(byte_cnt + next_bytes > 0x1E) {
+                fprintf(fp, "%02X", byte_cnt);
+                fprintf(fp, "%s\n", obj_code);
+                strcpy(obj_code, "\0");
+                new_line_flag = 1;
+                byte_cnt = 0;
+            }
+        }
+        current = current->next;
+    }
+    if(mod_line_flag) {
+        for (int i = 0; i < mod_byte_cnt; ++i) {
+            fprintf(fp, "M%06X05\n", mod_byte_array[i]+1);
+        }
+    }
+    fprintf(fp, "E%06X\n", start_addr);
+    fclose(fp);
+    return SUCCESS;
 }

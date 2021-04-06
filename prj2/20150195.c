@@ -420,18 +420,24 @@ int main() {
 
             char path[1024];
             sprintf(path, "./%s", cmd_token[1]);
+
+            // 현재 디렉토리에서 인자로 들어온 파일 이름과 일치하는 파일을 찾는다.
             ret = stat(path, &info);
             if(ret == FAIL) {
                 printf("cannot find file named %s\n", cmd_token[1]);
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+
+            // 해당 파일을 연다.
             FILE* fp = fopen(cmd_token[1], "r");
             if(fp == NULL) {
                 printf("cannot open file %s\n", cmd_token[1]);
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+
+            // 해당 파일을 한 줄씩 출력한다.
             while(1) {
                 char line[100];
                 fgets(line, 100, fp);
@@ -453,36 +459,94 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            // 확장자명 처리 해줘야함
+            // 확장자명 예외 처리
+            char extension[4];
+            memmove(&extension, &cmd_token[1][strlen(cmd_token[1])-4], 4); // 뒤 확장자 부분만 잘라낸다.
+
+            if(strcmp(extension, ".asm") != 0) {
+                printf("extension for assemble must be .asm\n");
+                clear(cmd,cmd_token,tokens);
+                continue;
+            }
 
             int error_flag = 0;
             int lines = 0;
             int prgm_len = 0;
+
+            // assemble 명령어가 정상적으로 동작하기 시작했을 때 필요한 자료구조를 초기화한다.
             symtab_init(symtab);
             line_list_init(linelist);
 
+            // pass 1
             if(pass1(cmd_token[1], optab, symtab, linelist, &lines, &prgm_len, &error_flag) == FAIL) {
+                // pass 1이 실패 했을 경우 해당 라인에서 실패한 이유를 출력한다.
+                if(error_flag == 1) {
+                    printf("error in line #%d\n", lines);
+                }
+                else if (error_flag == 2) {
+                    printf("duplicate symbol in line #%d\n", lines);
+                }
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
 
-            if(error_flag == 1) {
-                printf("error in line #%d\n", lines);
-                clear(cmd, cmd_token, tokens);
-                continue;
-            }
-            else if (error_flag == 2) {
-                printf("duplicate symbol in line #%d\n", lines);
-                clear(cmd, cmd_token, tokens);
-                continue;
-            }
-            // save program length
-
-            if(pass2(cmd_token[1], optab, symtab, linelist, &lines, &prgm_len, &error_flag) == FAIL) {
+            // pass 2
+            if(pass2(cmd_token[1], optab, symtab, linelist, &prgm_len) == FAIL) {
                 printf("pass2 failed\n");
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
+        }
+        // cmd == "symbol"
+        else if(strcmp(cmd_token[0], "symbol") == 0) {
+            if(!cmd_valid_check(tokens, SYMBOL)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+
+            // symbol의 개수를 세어 개수만큼 동적 배열 할당
+            int count = 0;
+            for(int i=0; i < HASH_SIZE; i++) {
+                count += symtab[i].count;
+            }
+            char** symbols_name = (char**)malloc(sizeof(char*) * count);
+            for (int i = 0; i < count; ++i) {
+                symbols_name[i] = (char*)malloc(sizeof(char)*30);
+            }
+
+            // 동적할당한 배열에 symbol의 이름을 복사
+            int j = 0;
+            for (int i = 0; i < HASH_SIZE; ++i) {
+                symbol_node* current = symtab[i].s_head;
+                for (; current != NULL ; current = current->next) {
+                    strcpy(symbols_name[j++], current->name);
+                }
+            }
+
+            // 배열을 오름차순으로 정렬
+            char temp_str[30];
+            for (int i = 0; i < count; ++i) {
+                for (int k = 0; k < count - i - 1; ++k) {
+                    if(strcmp(symbols_name[k], symbols_name[k+1]) > 0) {
+                        strcpy(temp_str, symbols_name[k]);
+                        strcpy(symbols_name[k], symbols_name[k+1]);
+                        strcpy(symbols_name[k+1], temp_str);
+                    }
+                }
+            }
+
+            // symbol의 이름과 해당하는 주소값을 출력한다.
+            for (int i = 0; i < count; ++i) {
+                printf("\t%s\t%X\n", symbols_name[i], symbol_search(symtab, symbols_name[i]));
+            }
+
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
         }
         // 해당하는 명령어가 없는 경우 에러 처리
         else {

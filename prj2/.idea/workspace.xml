@@ -16,9 +16,8 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/20150195.c" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/20150195.h" beforeDir="false" afterPath="$PROJECT_DIR$/20150195.h" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/2_5.asm" beforeDir="false" afterPath="$PROJECT_DIR$/2_5.asm" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/2_5.asm.lst" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/func.c" beforeDir="false" afterPath="$PROJECT_DIR$/func.c" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.c" beforeDir="false" afterPath="$PROJECT_DIR$/main.c" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/mid_file.txt" beforeDir="false" afterPath="$PROJECT_DIR$/mid_file.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -57,11 +56,6 @@
     <property name="settings.editor.selected.configurable" value="preferences.keymap" />
   </component>
   <component name="RunManager" selected="CMake Application.20150195">
-    <configuration default="true" type="CLionExternalRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="CLION.EXTERNAL.BUILD" enabled="true" />
-      </method>
-    </configuration>
     <configuration name="20150195" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" WORKING_DIR="file://$PROJECT_DIR$" PASS_PARENT_ENVS_2="true" PROJECT_NAME="prj2" TARGET_NAME="20150195" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="prj2" RUN_TARGET_NAME="20150195">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
@@ -75,6 +69,11 @@
     <configuration name="prj2" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true" PROJECT_NAME="prj2" TARGET_NAME="prj2" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="prj2" RUN_TARGET_NAME="prj2">
       <method v="2">
         <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
       </method>
     </configuration>
     <list>
@@ -95,6 +94,7 @@
       <workItem from="1617265421687" duration="766000" />
       <workItem from="1617548656313" duration="10953000" />
       <workItem from="1617590771410" duration="28806000" />
+      <workItem from="1617691111258" duration="19345000" />
     </task>
     <servers />
   </component>
@@ -112,33 +112,5 @@
       </map>
     </option>
     <option name="oldMeFiltersMigrated" value="true" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/20150195.c</url>
-          <line>450</line>
-          <option name="timeStamp" value="13" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/func.c</url>
-          <line>730</line>
-          <option name="timeStamp" value="16" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <condition expression="current-&gt;line == 35" language="ObjectiveC" />
-          <url>file://$PROJECT_DIR$/func.c</url>
-          <line>590</line>
-          <option name="timeStamp" value="19" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <condition expression="*line == 185" language="ObjectiveC" />
-          <url>file://$PROJECT_DIR$/func.c</url>
-          <line>394</line>
-          <option name="timeStamp" value="21" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
   </component>
 </project>
