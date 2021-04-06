@@ -189,3 +189,7 @@ Temporary Items
 .apdisk
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,clion,c
+prj2/.idea/deployment.xml
+prj2/.idea/sshConfigs.xml
+prj2/.idea/webServers.xml
+prj2/.idea/workspace.xml
