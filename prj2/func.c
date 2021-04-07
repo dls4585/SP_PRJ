@@ -547,7 +547,7 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     }
                 }
                 else if(strcmp(mnemonic, "WORD") == 0) { // word의 경우 operand의 크기에 맞는 값을 증가시킨다.
-                    if((int)strtol(operand, NULL,16) > 0xFFFFFF) {
+                    if((int)strtol(operand, NULL,10) > 0xFFFFFF) {
                         *error_flag = 1;
                         break;
                     }
@@ -709,7 +709,7 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             }
             else if(strcmp(mnemonic, "WORD") == 0) {
                 is_mnemonic_byte = 1;
-                target_addr = (int)strtol(operand, NULL, 16);
+                target_addr = (int)strtol(operand, NULL, 10);
             }
             else {
                 current->obj_code = NONE;
