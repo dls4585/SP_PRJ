@@ -77,7 +77,7 @@ int main() {
             // 반복문 종료 -> 쉘 프로그램 종료
             break;
         }
-        // cmd == "help" or "h"
+            // cmd == "help" or "h"
         else if(strcmp(cmd_token[0], "help") == 0 || strcmp(cmd_token[0], "h") == 0) {
             if(!cmd_valid_check(tokens, HELP)) {
                 clear(cmd, cmd_token, tokens);
@@ -94,7 +94,7 @@ int main() {
                    "assemble filename\ntype filename\nsymbol\n");
 
         }
-        // cmd == "dir" or "d"
+            // cmd == "dir" or "d"
         else if(strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) {
             if(!cmd_valid_check(tokens, DIRECTORY)) {
                 clear(cmd, cmd_token, tokens);
@@ -120,11 +120,11 @@ int main() {
                 if(S_ISDIR(info.st_mode)) {
                     printf("%s/\n", dent->d_name);
                 }
-                // 실행가능 파일인 경우 *를 붙여 파일이름 출력
+                    // 실행가능 파일인 경우 *를 붙여 파일이름 출력
                 else if(info.st_mode & S_IXUSR) {
                     printf("%s*\n", dent->d_name);
                 }
-                // 이외의 파일은 이름만을 출력
+                    // 이외의 파일은 이름만을 출력
                 else {
                     printf("%s\n", dent->d_name);
                 }
@@ -139,7 +139,7 @@ int main() {
             list_push_back(history, node);
 
         }
-        // cmd == "history" or "hi"
+            // cmd == "history" or "hi"
         else if(strcmp(cmd_token[0], "history") == 0 || strcmp(cmd_token[0], "hi") == 0) {
             if(!cmd_valid_check(tokens,HISTORY)) {
                 clear(cmd, cmd_token, tokens);
@@ -156,7 +156,7 @@ int main() {
                 printf("%5d %s\n", j, current->cmd_history);
             }
         }
-        // cmd == "dump" or "du"
+            // cmd == "dump" or "du"
         else if(strcmp(cmd_token[0], "dump") == 0 || strcmp(cmd_token[0], "du") == 0) {
             if(!cmd_valid_check(tokens,DUMP)) {
                 clear(cmd, cmd_token, tokens);
@@ -205,7 +205,7 @@ int main() {
                     last_address = 0;
                 }
             }
-            // dump의 인자가 2개 또는 3개인 경우
+                // dump의 인자가 2개 또는 3개인 경우
             else {
                 // 인자를 16진수의 정수로 변환한다.
                 int start = (int)strtol(cmd_token[1], NULL, 16), end;
@@ -222,7 +222,7 @@ int main() {
                         end = start + 159;
                     }
                 }
-                // start와 end 인자가 들어온 경우
+                    // start와 end 인자가 들어온 경우
                 else {
                     end = (int)strtol(cmd_token[2], NULL, 16);
                     if(args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
@@ -296,7 +296,7 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "edit" or e
+            // cmd == "edit" or e
         else if(strcmp(cmd_token[0], "edit") == 0 || strcmp(cmd_token[0], "e") == 0) {
             if(!cmd_valid_check(tokens, EDIT) || args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
                 clear(cmd, cmd_token, tokens);
@@ -304,7 +304,7 @@ int main() {
             }
             // address 인자의 범위를 검사한다
             int address = (int)strtol(cmd_token[1], NULL, 16)
-                    ,value = (int)strtol(cmd_token[2], NULL, 16);
+            ,value = (int)strtol(cmd_token[2], NULL, 16);
             if(address > 0xFFFFF || address < 0) {
                 printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
                 clear(cmd, cmd_token, tokens);
@@ -318,7 +318,7 @@ int main() {
             // 해당 address의 값을 value 인자로 바꿔준다.
             memset(&memory[address], value, 1);
         }
-        // cmd == "fill" or "f"
+            // cmd == "fill" or "f"
         else if(strcmp(cmd_token[0], "fill") == 0 || strcmp(cmd_token[0],"f") == 0) {
             if(!cmd_valid_check(tokens, FILL) || args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL || args_check(cmd_token[3]) == FAIL) {
                 clear(cmd, cmd_token, tokens);
@@ -346,7 +346,7 @@ int main() {
             // start~end 메모리의 값을 value로 바꿔준다.
             memset(&memory[start], value, end-start+1);
         }
-        // cmd == "reset"
+            // cmd == "reset"
         else if(strcmp(cmd_token[0], "reset") == 0) {
             if(!cmd_valid_check(tokens, RESET)) {
                 clear(cmd, cmd_token, tokens);
@@ -359,7 +359,7 @@ int main() {
             // 모든 메모리를 0으로 초기화시킨다.
             memset(memory, 0, MAX_MEMORY_SIZE);
         }
-        // cmd == "opcode"
+            // cmd == "opcode"
         else if(strcmp(cmd_token[0], "opcode") == 0) {
             if(!cmd_valid_check(tokens, MNEMONIC)) {
                 clear(cmd, cmd_token, tokens);
@@ -387,7 +387,7 @@ int main() {
             printf("opcode_node is %X\n", opcode_node->opcode);
 
         }
-        // cmd == "opcodelist"
+            // cmd == "opcodelist"
         else if(strcmp(cmd_token[0], "opcodelist") == 0) {
             if(!cmd_valid_check(tokens,OPLIST)) {
                 clear(cmd, cmd_token, tokens);
@@ -411,7 +411,7 @@ int main() {
                 printf("\n");
             }
         }
-        // cmd == "type"
+            // cmd == "type"
         else if(strcmp(cmd_token[0], "type") == 0) {
             if(!cmd_valid_check(tokens,TYPE)) {
                 clear(cmd, cmd_token, tokens);
@@ -455,7 +455,7 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "assemble"
+            // cmd == "assemble"
         else if (strcmp(cmd_token[0], "assemble") == 0) {
             if(!cmd_valid_check(tokens, ASSEMBLE)) {
                 clear(cmd, cmd_token, tokens);
@@ -510,7 +510,7 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "symbol"
+            // cmd == "symbol"
         else if(strcmp(cmd_token[0], "symbol") == 0) {
             if(!cmd_valid_check(tokens, SYMBOL)) {
                 clear(cmd, cmd_token, tokens);
@@ -559,14 +559,14 @@ int main() {
 
             // symbol의 이름과 해당하는 주소값을 출력한다.
             for (int i = 0; i < count; ++i) {
-                printf("\t%s\t%4X\n", symbols_name[i], symbol_search(recent_symtab, symbols_name[i]));
+                printf("\t%s\t%04X\n", symbols_name[i], symbol_search(recent_symtab, symbols_name[i]));
             }
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // 해당하는 명령어가 없는 경우 에러 처리
+            // 해당하는 명령어가 없는 경우 에러 처리
         else {
             printf("Wrong command format, use help for command information\n");
         }
