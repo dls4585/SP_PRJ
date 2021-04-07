@@ -459,18 +459,20 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     strcpy(symbol, line_token[0]);
 
                     // 새로운 symbol node를 생성하고 초기화한다.
-                    symbol_node* symbolNode = (symbol_node*)malloc(sizeof(symbol_node));
-                    strcpy(symbolNode->name, symbol);
-                    symbolNode->LOCCTR = LOCCTR;
+                    if(strcmp(mnemonic, "START") != 0 || strcmp(mnemonic, "END") != 0) {
+                        symbol_node* symbolNode = (symbol_node*)malloc(sizeof(symbol_node));
+                        strcpy(symbolNode->name, symbol);
+                        symbolNode->LOCCTR = LOCCTR;
 
-                    // 이미 있는 symbol이라면 중복된 symbol 정의이므로 에러 처리한다.
-                    if(symbol_search(symtab, symbolNode->name) != -1) {
-                        free(symbolNode);
-                        *error_flag = 2;
-                        break;
+                        // 이미 있는 symbol이라면 중복된 symbol 정의이므로 에러 처리한다.
+                        if(symbol_search(symtab, symbolNode->name) != -1) {
+                            free(symbolNode);
+                            *error_flag = 2;
+                            break;
+                        }
+                        // 새로운 symbol을 symbol table에 삽입한다.
+                        insert_sym(symtab, symbolNode);
                     }
-                    // 새로운 symbol을 symbol table에 삽입한다.
-                    insert_sym(symtab, symbolNode);
                 }
                 else {
                     // symbol이 없고, operand가 2개이므로 이에 맞게 값을 복사한다.
@@ -497,7 +499,7 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
             if(strcmp(mnemonic, "END") == 0); // END의 경우 아무런 처리를 하지 않는다.
             // START의 경우, 해당 프로그램의 시작주소를 알리는 것이므로 다음 라인의 주소값 또한 동일하게 설정한다.
             else if(strcmp(mnemonic, "START") == 0) {
-                LOCCTR = (int)strtol(operand, NULL, 10);
+                LOCCTR = (int)strtol(operand, NULL, 16);
                 start_addr = LOCCTR;
                 nextLOCCTR = LOCCTR;
             }
@@ -545,16 +547,12 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     }
                 }
                 else if(strcmp(mnemonic, "WORD") == 0) { // word의 경우 operand의 크기에 맞는 값을 증가시킨다.
-                    int op = (int)strtol(operand, NULL, 10);
-                    if(op <= 0xFF) {
-                        nextLOCCTR += 1;
+                    if((int)strtol(operand, NULL,16) > 0xFFFFFF) {
+                        *error_flag = 1;
+                        break;
                     }
-                    else if(op <= 0xFFFF) {
-                        nextLOCCTR += 2;
-                    }
-                    else if(op <= 0xFFFFFF) {
-                        nextLOCCTR += 3;
-                    }
+                    nextLOCCTR += 3;
+
                 }
                 // 해당하는 case가 없는 경우 에러 처리한다.
                 else {
@@ -620,7 +618,11 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
         // PC는 해당 라인의 다음 줄로 설정된다.
         pc = current->next->LOCCTR;
         if(strcmp(mnemonic, "START") != 0 && pc == NONE) {
-            pc = current->next->next->LOCCTR;
+            line_node* node = current->next;
+            while(node->LOCCTR == NONE) {
+                node = node->next;
+            }
+            pc = node->LOCCTR;
         }
 
         if(operand[strlen(operand)-1] == ',') {
@@ -704,6 +706,10 @@ int pass2(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
                     }
                     target_addr = (int)strtol(operand, NULL, 16); // 해당 operand의 크기만큼 target address로 계산한다.
                 }
+            }
+            else if(strcmp(mnemonic, "WORD") == 0) {
+                is_mnemonic_byte = 1;
+                target_addr = (int)strtol(operand, NULL, 16);
             }
             else {
                 current->obj_code = NONE;
@@ -1038,7 +1044,7 @@ int write_obj_file(line_list* linelist, char* filename, const int* prgm_len) {
             // modification bit가 1이면
             // modification record에 사용해야하므로 해당 배열에 주소를 저장한다.
             if(current->mod_bit == 1) {
-                mod_byte_array[mod_byte_cnt++] = current->LOCCTR;
+                mod_byte_array[mod_byte_cnt++] = current->LOCCTR - start_addr;
             }
             /*
              * 해당 라인의 object code의 범위에 맞게 출력한다.

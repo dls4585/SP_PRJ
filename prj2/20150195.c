@@ -9,6 +9,8 @@ int main() {
     char cmd_token[4][MAX_CMD_LEN];
     bucket* optab = (bucket*)malloc(sizeof(bucket) * HASH_SIZE);
     bucket* symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
+    bucket* recent_symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
+    symtab_init(recent_symtab);
     line_list* linelist = (line_list*)malloc(sizeof(line_list));
     if(optab_init(optab) == FAIL) {
         printf("cannot initialize hash table\n");
@@ -497,6 +499,13 @@ int main() {
                 continue;
             }
 
+            /*
+             * 성공한 symbol table을 저장
+             */
+            for (int i = 0; i < HASH_SIZE; ++i) {
+                recent_symtab[i] = symtab[i];
+            }
+
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
@@ -511,8 +520,15 @@ int main() {
             // symbol의 개수를 세어 개수만큼 동적 배열 할당
             int count = 0;
             for(int i=0; i < HASH_SIZE; i++) {
-                count += symtab[i].count;
+                count += recent_symtab[i].count;
             }
+
+            if(count == 0) {
+                printf("no symbol table, please assemble first\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+
             char** symbols_name = (char**)malloc(sizeof(char*) * count);
             for (int i = 0; i < count; ++i) {
                 symbols_name[i] = (char*)malloc(sizeof(char)*30);
@@ -521,7 +537,7 @@ int main() {
             // 동적할당한 배열에 symbol의 이름을 복사
             int j = 0;
             for (int i = 0; i < HASH_SIZE; ++i) {
-                symbol_node* current = symtab[i].s_head;
+                symbol_node* current = recent_symtab[i].s_head;
                 for (; current != NULL ; current = current->next) {
                     strcpy(symbols_name[j++], current->name);
                 }
@@ -541,7 +557,7 @@ int main() {
 
             // symbol의 이름과 해당하는 주소값을 출력한다.
             for (int i = 0; i < count; ++i) {
-                printf("\t%s\t%X\n", symbols_name[i], symbol_search(symtab, symbols_name[i]));
+                printf("\t%s\t%X\n", symbols_name[i], symbol_search(recent_symtab, symbols_name[i]));
             }
 
             // 명령어를 history 리스트에 추가
