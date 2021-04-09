@@ -5,4 +5,4 @@ set(CMAKE_C_STANDARD 99)
 
 add_executable(prj2 main.c)
 
-add_executable(20150195 20150195.c func.c)
+add_executable(20150195 func.c)
