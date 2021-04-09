@@ -571,8 +571,8 @@ int pass1(char* filename, bucket* optab, bucket* symtab, line_list* linelist, in
     }
 
     // linelist->tail == "END"
-    // 그 이전의 노드의 LOCCTR에서 시작 주소를 빼서 프로그램의 길이를 계산한다.
-    *prgm_len = linelist->tail->prev->LOCCTR - start_addr;
+    // END LOCCTR에서 시작 주소를 빼서 프로그램의 길이를 계산한다.
+    *prgm_len = linelist->tail->LOCCTR - start_addr;
     fclose(fp);
     return SUCCESS;
 }

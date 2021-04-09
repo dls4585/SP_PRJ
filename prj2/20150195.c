@@ -463,7 +463,10 @@ int main() {
             }
             // 확장자명 예외 처리
             char extension[4];
+            char filename[30];
             memmove(&extension, &cmd_token[1][strlen(cmd_token[1])-4], 4); // 뒤 확장자 부분만 잘라낸다.
+            strcpy(filename, cmd_token[1]);
+            filename[strlen(filename)-4] = '\0';
 
             if(strcmp(extension, ".asm") != 0) {
                 printf("extension for assemble must be .asm\n");
@@ -505,6 +508,8 @@ int main() {
             for (int i = 0; i < HASH_SIZE; ++i) {
                 recent_symtab[i] = symtab[i];
             }
+
+            printf("[%s.lst], [%s.obj]\n", filename, filename);
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
