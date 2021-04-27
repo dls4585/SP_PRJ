@@ -1,15 +1,17 @@
 #include "20150195.h"
 
-/* 전역변수 */
-char memory[MAX_MEMORY_SIZE] = {0,};
-int last_address = 0;
+
 
 int main() {
     char cmd[MAX_CMD_LEN];
     char cmd_token[4][MAX_CMD_LEN];
     bucket* optab = (bucket*)malloc(sizeof(bucket) * HASH_SIZE);
+
     bucket* symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
     bucket* recent_symtab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
+
+    bucket* estab = (bucket*)malloc(sizeof(bucket)*HASH_SIZE);
+
     symtab_init(recent_symtab);
     line_list* linelist = (line_list*)malloc(sizeof(line_list));
     if(optab_init(optab) == FAIL) {
@@ -373,7 +375,7 @@ int main() {
             }
             // hash table에서 mnemonic 인자에 해당하는 opcode를 찾는다
             // 실패 시 NULL 반환
-            hash_node* opcode_node = opcode_search(optab, cmd_token[1]);
+            hash_node* opcode_node = search_opcode(optab, cmd_token[1]);
             if(opcode_node == NULL) {
                 printf("cannot find opcode_node of %s\n", cmd_token[1]);
                 clear(cmd, cmd_token, tokens);
@@ -564,7 +566,44 @@ int main() {
 
             // symbol의 이름과 해당하는 주소값을 출력한다.
             for (int i = 0; i < count; ++i) {
-                printf("\t%s\t%04X\n", symbols_name[i], symbol_search(recent_symtab, symbols_name[i]));
+                printf("\t%s\t%04X\n", symbols_name[i], search_symbol(recent_symtab, symbols_name[i]));
+            }
+
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
+        }
+        // cmd == "progaddr"
+        else if(strcmp(cmd_token[0], "progaddr") == 0) {
+            if(!cmd_valid_check(tokens, PROGADDR)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            PC = (int)strtol(cmd_token[1], NULL, 16);
+            if(PC > MAX_MEMORY_SIZE || PC < 0) {
+                PC = 0;
+                printf("wrong address, address must be between 0x00 ~ 0xFFFFF\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            PROG_ADDRESS = PC;
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
+        }
+        // cmd == "loader"
+        else if(strcmp(cmd_token[0], "loader") == 0) {
+            if(!cmd_valid_check(tokens, LOADER)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            int files_num = tokens - 1;
+
+            estab_init(estab);
+
+            if(load_pass1(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
+                clear(cmd, cmd_token, tokens);
+                continue;
             }
 
             // 명령어를 history 리스트에 추가

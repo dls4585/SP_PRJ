@@ -3,4 +3,4 @@ project(prj3)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(prj3 20150195.c func.c)
+add_executable(prj3 20150195.c func.c load.c assemble.c)
