@@ -1,6 +1,13 @@
 #include "20150195.h"
 
 
+/* 전역변수 초기화 */
+char memory[MAX_MEMORY_SIZE] = {0,};
+int last_address = 0;
+int PC = 0;
+int CSADDR = 0;
+int PROG_ADDRESS = 0;
+int CSLTH = 0;
 
 int main() {
     char cmd[MAX_CMD_LEN];
@@ -39,7 +46,7 @@ int main() {
         strcpy(cmd_token[tokens], ptr);
         tokens++;
         int sep_success = 1;
-        while((ptr=strsep(&temp,",")) != NULL) {
+        while((ptr=strsep(&temp,", ")) != NULL) {
             strcpy(cmd_token[tokens], ptr);
             trim_cmd(cmd_token[tokens]);
             tokens++;

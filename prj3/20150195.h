@@ -40,12 +40,12 @@
 #define RUN 16
 
 /* 전역변수 */
-char memory[MAX_MEMORY_SIZE] = {0,};
-int last_address = 0;
-int PC = 0;
-int CSADDR = 0;
-int PROG_ADDRESS = 0;
-int CSLTH = 0;
+extern char memory[MAX_MEMORY_SIZE];
+extern int last_address;
+extern int PC;
+extern int CSADDR;
+extern int PROG_ADDRESS;
+extern int CSLTH;
 
 /* 정의되는 구조체 */
 typedef struct node {
@@ -124,7 +124,7 @@ void insert_opcode(bucket* hashtable, hash_node* hash);
 hash_node* search_opcode(bucket* hashtable, char* mnemonic);
 
 void replaceTab(char* string);
-void* str_slice(char *dest, const char *src, int start, int size);
+void str_slice(char *dest, const char *src, int start, int size);
 
 void symtab_init(bucket* symtab);
 void insert_symbol(bucket* symtab, symbol_node* symbol);

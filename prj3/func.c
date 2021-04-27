@@ -351,7 +351,7 @@ void replaceTab(char* string) {
  * 목적 : 문자열 슬라이싱
  * 리턴값 없음
  */
-void * str_slice(char *dest, const char *src, int start, int size) {
+void str_slice(char *dest, const char *src, int start, int size) {
     int j = 0;
     for (int i = start; i < start+size; ++i, ++j) {
         dest[j] = src[i];

@@ -1,5 +1,7 @@
 #include "20150195.h"
 
+
+
 void estab_init(bucket* estab) {
     for (int i = 0; i < HASH_SIZE; ++i) {
         estab[i].ES_head = NULL;
@@ -40,7 +42,7 @@ ES_node* create_ESnode(char* name, int is_CSEC, int address) {
 }
 
 int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_num) {
-    char files[3][7];
+    char files[3][30];
     strcpy(files[0], file1);
     if(files_num >= 2) {
         strcpy(files[1], file2);
@@ -61,9 +63,10 @@ int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_n
         }
         while(1) {
             char line[70];
-            char temp[10];
+            char temp[7];
             int cur_index = 1;
             fgets(line, 70, fp);
+            line[strlen(line)-1] = '\0';
             if(feof(fp)) break;
 
             if(line[0] == 'H') {
@@ -82,9 +85,9 @@ int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_n
                 insert_ES(estab, node);
 
             } else if (line[0] == 'D') {
-                char name[7];
                 int addr = 0;
                 for (; cur_index < strlen(line); cur_index += 6) {
+                    char name[7];
                     if(cur_index % 12 == 1) { // ES name column
                         str_slice(temp, line, cur_index, 6);
                         rtrim(temp);
@@ -92,16 +95,16 @@ int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_n
                             printf("duplicate external symbol error.\n");
                             return FAIL;
                         }
-                        strncpy(name, temp, strlen(temp));
                     }
                     else {
+                        strcpy(name, temp);
                         str_slice(temp, line, cur_index, 6);
                         addr = (int)strtol(temp, NULL, 16) + CSADDR;
                         ES_node* node = create_ESnode(name, NO, addr);
                         insert_ES(estab, node);
                         addr = 0;
+                        temp[0] = '\0';
                     }
-                    strncpy(temp, "\0", 1);
                 }
             } else break;
         }
@@ -109,7 +112,7 @@ int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_n
     }
     return SUCCESS;
 }
-
-int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_num) {
-
-}
+//
+//int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_num) {
+//
+//}
