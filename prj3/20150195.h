@@ -40,7 +40,7 @@
 #define RUN 16
 
 /* 전역변수 */
-extern char memory[MAX_MEMORY_SIZE];
+extern unsigned char memory[MAX_MEMORY_SIZE];
 extern int last_address;
 extern int PC;
 extern int CSADDR;
@@ -142,6 +142,9 @@ int write_obj_file(line_list* list, char* filename, const int* prgm_len);
 
 int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_num);
 int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_num);
+void modify(char* temp, char* line, int cur_index, int ref_num[][6], int i);
+
+unsigned int cut_by_byte_from_last(unsigned int number);
 
 void estab_init(bucket* estab);
 void insert_ES(bucket* estab, ES_node* ES);

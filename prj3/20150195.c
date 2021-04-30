@@ -2,7 +2,7 @@
 
 
 /* 전역변수 초기화 */
-char memory[MAX_MEMORY_SIZE] = {0,};
+unsigned char memory[MAX_MEMORY_SIZE] = {0,};
 int last_address = 0;
 int PC = 0;
 int CSADDR = 0;
@@ -48,6 +48,7 @@ int main() {
         int sep_success = 1;
         while((ptr=strsep(&temp,", ")) != NULL) {
             strcpy(cmd_token[tokens], ptr);
+            if(temp != NULL) trim_cmd(temp);
             trim_cmd(cmd_token[tokens]);
             tokens++;
             // 최대로 들어올 수 있는 토큰이 4개이므로
@@ -231,7 +232,7 @@ int main() {
                         end = start + 159;
                     }
                 }
-                    // start와 end 인자가 들어온 경우
+                // start와 end 인자가 들어온 경우
                 else {
                     end = (int)strtol(cmd_token[2], NULL, 16);
                     if(args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
@@ -312,8 +313,8 @@ int main() {
                 continue;
             }
             // address 인자의 범위를 검사한다
-            int address = (int)strtol(cmd_token[1], NULL, 16)
-            ,value = (int)strtol(cmd_token[2], NULL, 16);
+            int address = (int)strtol(cmd_token[1], NULL, 16);
+            unsigned int value = (unsigned int)strtol(cmd_token[2], NULL, 16);
             if(address > 0xFFFFF || address < 0) {
                 printf("arguments must be in range of 0x0 to 0xFFFFF.\n");
                 clear(cmd, cmd_token, tokens);
@@ -609,6 +610,24 @@ int main() {
             estab_init(estab);
 
             if(load_pass1(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+
+            for (int i = 0; i < HASH_SIZE; ++i) {
+                printf("%d  : ", i);
+                ES_node* current;
+                int count = estab[i].count;
+                for (current = estab[i].ES_head; current != NULL; current = current->next, count--) {
+                    printf("[%X,%s]", current->address, current->name);
+                    if(count != 1) {
+                        printf("  ->  ");
+                    }
+                }
+                printf("\n");
+            }
+
+            if(load_pass2(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
