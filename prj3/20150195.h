@@ -49,8 +49,9 @@ extern int PC;
 extern int CSADDR;
 extern int PROG_ADDRESS;
 extern int CSLTH;
-extern int LOCCTR;
-extern int nextLOCCTR;
+extern int PROG_LENGTH;
+extern int nextPC;
+extern int A, X, L, S, B, T;
 
 /* 정의되는 구조체 */
 typedef struct node {
@@ -156,3 +157,4 @@ void insert_ES(bucket* estab, ES_node* ES);
 int search_ES(bucket* estab, char* ES_name);
 ES_node* create_ESnode(char* name, int is_CSEC, int address);
 
+void run(int* BP_list, int BP_count);

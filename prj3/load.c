@@ -266,3 +266,7 @@ unsigned int cut_by_byte_from_last(unsigned int number) {
     unsigned int temp = number & 0xFF;
     return temp;
 }
+
+void run(int* BP_list, int BP_count) {
+    
+}

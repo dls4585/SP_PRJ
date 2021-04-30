@@ -8,8 +8,9 @@ int PC = 0;
 int CSADDR = 0;
 int PROG_ADDRESS = 0;
 int CSLTH = 0;
-int LOCCTR = 0;
-int nextLOCCTR = 0;
+int PROG_LENGTH = 0;
+int nextPC = 0;
+int A = 0, X = 0, L = 0, S = 0, B = 0, T = 0;
 
 int main() {
     char cmd[MAX_CMD_LEN];
@@ -614,7 +615,7 @@ int main() {
                 continue;
             }
             int files_num = tokens - 1;
-            int es_count = 0, total_length = 0;
+            int es_count = 0;
 
             estab_init(estab);
 
@@ -662,7 +663,7 @@ int main() {
             for (int i = 0; i < es_count; ++i) {
                 if(sorted_estab[i]->is_CSEC == YES) {
                     printf("%6s\t      \t%04X\t%04X\n", sorted_estab[i]->name, sorted_estab[i]->address, sorted_estab[i]->length);
-                    total_length += sorted_estab[i]->length;
+                    PROG_LENGTH += sorted_estab[i]->length;
                 }
                 else {
                     printf("      \t%6s\t%04X\n", sorted_estab[i]->name, sorted_estab[i]->address);
@@ -673,7 +674,9 @@ int main() {
                 printf("- ");
             }
             printf("\n");
-            printf("\t\ttotal length\t%04X\n", total_length);
+            printf("\t\ttotal length\t%04X\n", PROG_LENGTH);
+
+            A = 0, X = 0, B = 0, S = 0, T = 0, L = PROG_LENGTH;
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
@@ -729,6 +732,18 @@ int main() {
                     printf("\t\t%X\n", BP_list[i]);
                 }
             }
+
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
+        }
+        // cmd == "run"
+        else if(strcmp(cmd_token[0], "run") == 0) {
+            if(!cmd_valid_check(tokens, RUN)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+            run(BP_list, BP_count);
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
