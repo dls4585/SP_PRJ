@@ -39,6 +39,9 @@
 #define BP 15
 #define RUN 16
 
+#define CYN   "\x1B[36m"
+#define CRESET "\x1B[0m"
+
 /* 전역변수 */
 extern unsigned char memory[MAX_MEMORY_SIZE];
 extern int last_address;

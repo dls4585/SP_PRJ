@@ -23,6 +23,12 @@ int main() {
 
     symtab_init(recent_symtab);
     line_list* linelist = (line_list*)malloc(sizeof(line_list));
+
+    // BP 용 리스트 추가
+    int* BP_list = (int*)malloc(sizeof(int)*10);
+    int BP_count = 0;
+    int BP_max = 10;
+
     if(optab_init(optab) == FAIL) {
         printf("cannot initialize hash table\n");
         return 0;
@@ -679,7 +685,54 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+            int arg;
+            if(tokens == 2) {
+                arg = (int)strtol(cmd_token[1], NULL, 16);
+                if(strcmp(cmd_token[1], "clear") == 0) {
+                    for (int i = 0; i < BP_count; ++i) {
+                        BP_list[i] = 0;
+                    }
+                    BP_count = 0;
+                    printf("[");
+                    printf(CYN "ok");
+                    printf(CRESET "] clear all breakpoints\n");
+                }
+                else {
+//                    if(arg > 0xFF) {
+//                        printf("Wrong argumnet.\n");
+//                        clear(cmd, cmd_token, tokens);
+//                        continue;
+//                    }
+                    if(BP_count > BP_max) {
+                        int* backup = BP_list;
+                        if((BP_list = (int*)realloc(BP_list, sizeof(int)*(BP_max + 10))) == NULL) {
+                            printf("no more memory to add BP.\n");
+                            BP_list = backup;
+                            clear(cmd, cmd_token, tokens);
+                            continue;
+                        }
+                    }
+                    BP_list[BP_count] = arg;
+                    printf("[");
+                    printf(CYN "ok");
+                    printf(CRESET "] create breakpoint %X\n", BP_list[BP_count]);
+                    BP_count++;
+                }
+            }
+            else {
+                printf("\t\tbreakpoint\n\t\t");
+                for (int i = 0; i < 10; ++i) {
+                    printf("- ");
+                }
+                printf("\n");
+                for (int i = 0; i < BP_count; ++i) {
+                    printf("\t\t%X\n", BP_list[i]);
+                }
+            }
 
+            // 명령어를 history 리스트에 추가
+            Node* node = create_Node(cmd_token, tokens);
+            list_push_back(history, node);
         }
         // 해당하는 명령어가 없는 경우 에러 처리
         else {

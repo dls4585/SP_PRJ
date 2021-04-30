@@ -87,7 +87,6 @@ int cmd_valid_check(int tokens, int cmd_case) {
         case MNEMONIC: // opcode mnemonic
         case TYPE:
         case ASSEMBLE:
-        case BP:
         case PROGADDR:
             if(tokens != 2) {
                 printf("Wrong command format, use help for command information\n");
@@ -100,6 +99,11 @@ int cmd_valid_check(int tokens, int cmd_case) {
                 return 0;
             }
             break;
+        case BP:
+            if(tokens > 2) {
+                printf("Wrong command format, use help for command information\n");
+                return 0;
+            }
         default:
             return 1;
     }
