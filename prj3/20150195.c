@@ -8,6 +8,8 @@ int PC = 0;
 int CSADDR = 0;
 int PROG_ADDRESS = 0;
 int CSLTH = 0;
+int LOCCTR = 0;
+int nextLOCCTR = 0;
 
 int main() {
     char cmd[MAX_CMD_LEN];
@@ -205,7 +207,7 @@ int main() {
                             }
                         }
                         printf("\n");
-                        line = i;
+                        line = i+1;
                         // line을 i로 업데이트하여 다음 라인에서 다음 메모리 값 출력하도록 한다
                     }
                 }
@@ -280,7 +282,7 @@ int main() {
                             }
                         }
                         printf("\n");
-                        line = i;
+                        line = i+1;
                     }
                     // line이 끝나지 않았으나, end에 도달한 경우
                     // 남은 만큼을 공백으로 처리하고
@@ -606,6 +608,7 @@ int main() {
                 continue;
             }
             int files_num = tokens - 1;
+            int es_count = 0, total_length = 0;
 
             estab_init(estab);
 
@@ -615,16 +618,27 @@ int main() {
             }
 
             for (int i = 0; i < HASH_SIZE; ++i) {
-                printf("%d  : ", i);
-                ES_node* current;
-                int count = estab[i].count;
-                for (current = estab[i].ES_head; current != NULL; current = current->next, count--) {
-                    printf("[%X,%s]", current->address, current->name);
-                    if(count != 1) {
-                        printf("  ->  ");
+                es_count += estab[i].count;
+            }
+
+            ES_node** sorted_estab = (ES_node**)malloc(sizeof(ES_node)*es_count);
+            int j = 0;
+            for(int i = 0; i < HASH_SIZE; ++i) {
+                ES_node* current = estab[i].ES_head;
+                for(; current != NULL; current = current->next) {
+                    sorted_estab[j++] = current;
+                }
+            }
+
+            // ES 배열을 주소 기준 오름차순으로 정렬
+            for (int i = 0; i < es_count; ++i) {
+                for (int k = 0; k < es_count - i - 1; ++k) {
+                    if(sorted_estab[k]->address > sorted_estab[k + 1]->address) {
+                        ES_node *temp_node = sorted_estab[k + 1];
+                        sorted_estab[k + 1] = sorted_estab[k];
+                        sorted_estab[k] = temp_node;
                     }
                 }
-                printf("\n");
             }
 
             if(load_pass2(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
@@ -632,11 +646,42 @@ int main() {
                 continue;
             }
 
+            printf("control symbol  address length\n");
+            printf("section name\n");
+            for (int i = 0; i < 32; ++i) {
+                printf("- ");
+            }
+            printf("\n");
+
+            for (int i = 0; i < es_count; ++i) {
+                if(sorted_estab[i]->is_CSEC == YES) {
+                    printf("%6s\t      \t%04X\t%04X\n", sorted_estab[i]->name, sorted_estab[i]->address, sorted_estab[i]->length);
+                    total_length += sorted_estab[i]->length;
+                }
+                else {
+                    printf("      \t%6s\t%04X\n", sorted_estab[i]->name, sorted_estab[i]->address);
+                }
+            }
+
+            for (int i = 0; i < 32; ++i) {
+                printf("- ");
+            }
+            printf("\n");
+            printf("\t\ttotal length\t%04X\n", total_length);
+
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-            // 해당하는 명령어가 없는 경우 에러 처리
+        // cmd == "bp"
+        else if(strcmp(cmd_token[0], "bp") == 0) {
+            if(!cmd_valid_check(tokens, BP)) {
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
+
+        }
+        // 해당하는 명령어가 없는 경우 에러 처리
         else {
             printf("Wrong command format, use help for command information\n");
         }

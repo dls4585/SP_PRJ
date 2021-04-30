@@ -187,12 +187,9 @@ int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_n
                     str_slice(temp, line, cur_index, 2);
                     byte_value = (unsigned int)strtol(temp, NULL, 16);
                     memset(&memory[current_addr], byte_value, 1);
-//                    printf("%05X : ", current_addr);
-//                    printf("%02X ", memory[current_addr]);
                     current_addr++;
                     cur_index+=2;
                 }
-//                printf("\n");
             }
             else if(line[0] == 'M') {
                 modify(temp, line, cur_index, ref_num, i);
@@ -200,6 +197,8 @@ int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_n
             else break;
         }
     }
+
+
     return SUCCESS;
 }
 
@@ -260,7 +259,6 @@ void modify(char* temp, char* line, int cur_index, int ref_num[][6], int i) {
         origin_value = origin_value >> 8;
     }
 
-//    memset(&memory[mod_target_addr], origin_value, (half_bytes_num+1) / 2);
     memcpy(&memory[mod_target_addr], src, (half_bytes_num+1)/2);
 }
 

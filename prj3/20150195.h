@@ -46,6 +46,8 @@ extern int PC;
 extern int CSADDR;
 extern int PROG_ADDRESS;
 extern int CSLTH;
+extern int LOCCTR;
+extern int nextLOCCTR;
 
 /* 정의되는 구조체 */
 typedef struct node {
