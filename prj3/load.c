@@ -273,7 +273,7 @@ int run(int* BP_list, int BP_count, bucket* optab) {
         int opcode, ni_bits, xbpe;
         int current_byte;
         char temp[10];
-        int n,i,x,b,p,e;
+        int x,b,p,e;
         int TA;
         int j_flag = NO;
         int sign_bit = 1;
@@ -322,6 +322,10 @@ int run(int* BP_list, int BP_count, bucket* optab) {
                 current_byte = memory[PC+2];
                 TA = TA | current_byte;
             }
+            sign_bit = TA >> 11;
+            if(sign_bit == 1) {
+                TA |= (int)0xFFFFF000;
+            }
 
 
             if (x == 1) {
@@ -336,7 +340,6 @@ int run(int* BP_list, int BP_count, bucket* optab) {
         }
 
         int r1, r2;
-
         switch (opcode) {
             case 0x14: // STL
                 store(&L, TA, ni_bits);
@@ -479,8 +482,8 @@ int run(int* BP_list, int BP_count, bucket* optab) {
                 nextPC = L;
                 break;
             case 0x50: // LDCH
-                A >>= 2;
-                A <<= 2;
+                A >>= 8;
+                A <<= 8;
                 if(ni_bits == 3) { // simple
                     A |= memory[TA];
                 } else if (ni_bits == 2) { // indirect
@@ -489,7 +492,61 @@ int run(int* BP_list, int BP_count, bucket* optab) {
                     A |= TA;
                 }
                 break;
-
+            case 0xA0: // COMPR
+                r1 = TA & 0xF0;
+                r2 = TA & 0x0F;
+                switch (r1) {
+                    case 0:
+                        r1 = A;
+                        break;
+                    case 1:
+                        r1 = X;
+                        break;
+                    case 2:
+                        r1 = L;
+                        break;
+                    case 3:
+                        r1 = B;
+                        break;
+                    case 4:
+                        r1 = S;
+                        break;
+                    case 5:
+                        r1 = T;
+                        break;
+                    default:
+                        break;
+                }
+                switch (r2) {
+                    case 0:
+                        r2 = A;
+                        break;
+                    case 1:
+                        r2 = X;
+                        break;
+                    case 2:
+                        r2 = L;
+                        break;
+                    case 3:
+                        r2 = B;
+                        break;
+                    case 4:
+                        r2 = S;
+                        break;
+                    case 5:
+                        r2 = T;
+                        break;
+                    default:
+                        break;
+                }
+                if(r1 > r2) {
+                    CC = '>';
+                } else if (r1 == r2) {
+                    CC = '=';
+                } else {
+                    CC = '<';
+                }
+                break;
             case 0xDC: // WD
             default:
                 break;
@@ -559,10 +616,9 @@ int check_BP(int* BP_list, int BP_count) {
 
 void print_registers() {
     printf("A : %06X\tX : %06X\n", A, X);
-    printf("L : %06X PC : %06X\n", L, PC);
+    printf("L : %06X\t\bPC : %06X\n", L, PC);
     printf("B : %06X\tS : %06X\n", B, S);
     printf("T : %06X\n", T);
-    printf("\t\tStop at checkpoint[%X]\n", PC);
 }
 
 void jump(int TA, int ni_bits) {

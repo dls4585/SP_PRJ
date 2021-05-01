@@ -618,6 +618,7 @@ int main() {
             }
             int files_num = tokens - 1;
             int es_count = 0;
+            PROG_LENGTH = 0;
 
             estab_init(estab);
 
@@ -679,6 +680,7 @@ int main() {
             printf("\t\ttotal length\t%04X\n", PROG_LENGTH);
 
             A = 0, X = 0, B = 0, S = 0, T = 0, L = PROG_LENGTH;
+            PC = PROG_ADDRESS;
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
@@ -745,11 +747,20 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            if(run(BP_list, BP_count, optab) == FAIL) {
+            int result;
+
+            if((result = run(BP_list, BP_count, optab)) == FAIL) {
                 printf("running program stopped for some reason.\n");
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+            else if(result == SUCCESS) {
+                print_registers();
+                printf("\t\tEnd Program\n");
+            } else if(result == PC) {
+                printf("\t\tStop at checkpoint[%X]\n", PC);
+            }
+
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
