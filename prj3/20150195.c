@@ -11,6 +11,8 @@ int CSLTH = 0;
 int PROG_LENGTH = 0;
 int nextPC = 0;
 int A = 0, X = 0, L = 0, S = 0, B = 0, T = 0;
+char CC = '<';
+int BP_flag = NO;
 
 int main() {
     char cmd[MAX_CMD_LEN];
@@ -743,8 +745,11 @@ int main() {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            run(BP_list, BP_count);
-
+            if(run(BP_list, BP_count, optab) == FAIL) {
+                printf("running program stopped for some reason.\n");
+                clear(cmd, cmd_token, tokens);
+                continue;
+            }
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);

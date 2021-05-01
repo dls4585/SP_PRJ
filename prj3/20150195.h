@@ -52,6 +52,8 @@ extern int CSLTH;
 extern int PROG_LENGTH;
 extern int nextPC;
 extern int A, X, L, S, B, T;
+extern char CC;
+extern int BP_flag;
 
 /* 정의되는 구조체 */
 typedef struct node {
@@ -157,4 +159,14 @@ void insert_ES(bucket* estab, ES_node* ES);
 int search_ES(bucket* estab, char* ES_name);
 ES_node* create_ESnode(char* name, int is_CSEC, int address);
 
-void run(int* BP_list, int BP_count);
+int run(int *BP_list, int BP_count, bucket *optab);
+
+void search_by_opcode(bucket* optab, int opcode, char temp[10]);
+
+void store(const int* reg, int TA, int ni_bits);
+void load(int* reg, int TA, int ni_bits);
+void jump(int TA, int ni_bits);
+
+int check_BP(int* BP_list, int BP_count);
+void print_registers();
+

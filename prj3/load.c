@@ -267,6 +267,312 @@ unsigned int cut_by_byte_from_last(unsigned int number) {
     return temp;
 }
 
-void run(int* BP_list, int BP_count) {
-    
+int run(int* BP_list, int BP_count, bucket* optab) {
+
+    while (PC != PROG_LENGTH) { // 수정
+        int opcode, ni_bits, xbpe;
+        int current_byte;
+        char temp[10];
+        int n,i,x,b,p,e;
+        int TA;
+        int j_flag = NO;
+        int sign_bit = 1;
+
+        if(BP_flag == NO && check_BP(BP_list, BP_count) == YES) {
+            print_registers();
+            BP_flag = YES;
+            return PC;
+        }
+        BP_flag = NO;
+
+        current_byte = memory[PC];
+        opcode = current_byte >> 2;
+        opcode <<= 2;
+        ni_bits = current_byte & 0x03;
+
+        search_by_opcode(optab, opcode, temp);
+        if(strcmp(temp, "FAIL") == 0) {
+            printf("cannot disassemble opcode.\n");
+            return FAIL;
+        }
+        hash_node* opnode = search_opcode(optab, temp);
+        if(opnode->format[0] == 2) {
+            nextPC = PC+2;
+            current_byte = memory[PC+1];
+            TA = current_byte;
+        }else {
+            current_byte = memory[PC+1];
+            xbpe = current_byte >> 4;
+            x = xbpe >> 3;
+            b = (xbpe >> 2) & 0x01;
+            p = (xbpe >> 1) & 0x01;
+            e = xbpe & 0x01;
+
+            TA = (current_byte & 0x0F) << 8;
+
+            if(e == 1) {
+                nextPC = PC+4;
+                TA <<= 8;
+                current_byte = memory[PC+2];
+                TA = TA | (current_byte << 8);
+                current_byte = memory[PC+3];
+                TA = TA | current_byte;
+            } else {
+                nextPC = PC+3;
+                current_byte = memory[PC+2];
+                TA = TA | current_byte;
+            }
+
+
+            if (x == 1) {
+                TA += X;
+            }
+
+            if(b == 1 && p == 0) { // base relative
+                TA += B;
+            } else if(b == 0 && p == 1) { // pc relative
+                TA += nextPC;
+            }
+        }
+
+        int r1, r2;
+
+        switch (opcode) {
+            case 0x14: // STL
+                store(&L, TA, ni_bits);
+                break;
+            case 0x68: // LDB
+                load(&B, TA, ni_bits);
+                break;
+            case 0x48: // JSUB
+                L = nextPC;
+                j_flag = YES;
+                jump(TA, ni_bits);
+                break;
+            case 0x00: // LDA
+                load(&A, TA, ni_bits);
+                break;
+            case 0x28: // COMP
+                if(ni_bits == 3) { // simple
+                    if(A > memory[TA]) {
+                        CC = '>';
+                    } else if (A == memory[TA]) {
+                        CC = '=';
+                    } else {
+                        CC = '<';
+                    }
+                } else if (ni_bits == 2) { // indirect
+                    if(A > memory[memory[TA]]) {
+                        CC = '>';
+                    } else if (A == memory[TA]) {
+                        CC = '=';
+                    } else {
+                        CC = '<';
+                    }
+                } else if (ni_bits == 1) { // immediate
+                    if(A > TA) {
+                        CC = '>';
+                    } else if (A == TA) {
+                        CC = '=';
+                    } else {
+                        CC = '<';
+                    }
+                }
+                break;
+            case 0x30: // JEQ
+                if(CC == '=') {
+                    jump(TA, ni_bits);
+                    j_flag = YES;
+                }
+                break;
+            case 0x3C: // J
+                jump(TA, ni_bits);
+                j_flag = YES;
+                break;
+            case 0x0C: // STA
+                store(&A, TA, ni_bits);
+                break;
+            case 0xB4: // CLEAR
+                TA = TA >> 4;
+                switch (TA) {
+                    case 0:
+                        A = 0;
+                        break;
+                    case 1:
+                        X = 0;
+                        break;
+                    case 2:
+                        L = 0;
+                        break;
+                    case 3:
+                        B = 0;
+                        break;
+                    case 4:
+                        S = 0;
+                        break;
+                    case 5:
+                        T = 0;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case 0x74: // LDT
+                load(&T, TA, ni_bits);
+                break;
+            case 0xE0: // TD
+                CC = '<';
+                break;
+            case 0xD8: // RD
+                CC = '=';
+                break;
+            case 0x54: // STCH
+                if(ni_bits == 3) { // simple
+                    memory[TA] = (A & 0xFF);
+                } else if (ni_bits == 2) { // indirect
+                    memory[memory[TA]] = (A & 0xFF);
+                }
+                break;
+            case 0xB8: // TIXR
+                TA = TA >> 4;
+                X++;
+                switch (TA) {
+                    case 0:
+                        TA = A;
+                        break;
+                    case 1:
+                        TA = X;
+                        break;
+                    case 2:
+                        TA = L;
+                        break;
+                    case 3:
+                        TA = B;
+                        break;
+                    case 4:
+                        TA = S;
+                        break;
+                    case 5:
+                        TA = T;
+                        break;
+                    default:
+                        break;
+                }
+                if(X > T) {
+                    CC = '>';
+                } else if (X == T) {
+                    CC = '=';
+                } else {
+                    CC = '<';
+                }
+                break;
+            case 0x38: // JLT
+                if(CC == '<') {
+                    jump(TA, ni_bits);
+                    j_flag = YES;
+                }
+                break;
+            case 0x10: // STX
+                store(&X, TA, ni_bits);
+                break;
+            case 0x4C: // RSUB
+                nextPC = L;
+                break;
+            case 0x50: // LDCH
+                A >>= 2;
+                A <<= 2;
+                if(ni_bits == 3) { // simple
+                    A |= memory[TA];
+                } else if (ni_bits == 2) { // indirect
+                    A |= memory[memory[TA]];
+                } else if (ni_bits == 1) { // immediate
+                    A |= TA;
+                }
+                break;
+
+            case 0xDC: // WD
+            default:
+                break;
+        }
+        if(j_flag == NO) {
+            PC = nextPC;
+        }
+    }
+
+    return SUCCESS;
+}
+
+void search_by_opcode(bucket* optab, int opcode, char temp[10]) {
+    hash_node* current;
+    for (int i = 0; i < HASH_SIZE; ++i) {
+        for (current = optab[i].head; current != NULL ; current = current->next) {
+            if(current->opcode == opcode) {
+                strcpy(temp, current->mnemonic);
+                return;
+            }
+        }
+    }
+    strcpy(temp, "FAIL");
+}
+
+void store(const int* reg, int TA, int ni_bits) {
+    int first_byte = *reg >> (8*2);
+    int second_byte = (*reg >> 8) & 0xFF;
+    int third_byte = *reg & 0xFF;
+    if(ni_bits == 3) { // simple
+        memset(&memory[TA], first_byte, 1);
+        memset(&memory[TA+1], second_byte, 1);
+        memset(&memory[TA+2], third_byte, 1);
+    } else if(ni_bits == 2) { // indirect
+        memset(&memory[memory[TA]], first_byte, 1);
+        memset(&memory[memory[TA+1]], second_byte, 1);
+        memset(&memory[memory[TA+2]], third_byte, 1);
+    }
+}
+
+void load(int* reg, int TA, int ni_bits) {
+    if(ni_bits == 3) { // simple
+        *reg = memory[TA];
+        *reg <<= 8;
+        *reg |= memory[TA+1];
+        *reg <<= 8;
+        *reg |= memory[TA+2];
+    } else if (ni_bits == 2) { // indirect
+        *reg = memory[memory[TA]];
+        *reg <<= 8;
+        *reg |= memory[memory[TA+1]];
+        *reg <<= 8;
+        *reg |= memory[memory[TA+2]];
+    } else { // immediate
+        *reg = TA;
+    }
+}
+
+int check_BP(int* BP_list, int BP_count) {
+    for (int i = 0; i < BP_count; ++i) {
+        if(PC == BP_list[i]) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+void print_registers() {
+    printf("A : %06X\tX : %06X\n", A, X);
+    printf("L : %06X PC : %06X\n", L, PC);
+    printf("B : %06X\tS : %06X\n", B, S);
+    printf("T : %06X\n", T);
+    printf("\t\tStop at checkpoint[%X]\n", PC);
+}
+
+void jump(int TA, int ni_bits) {
+    if(ni_bits == 3) { // simple
+        PC = TA;
+    } else if (ni_bits == 2) { // indirect
+        PC = memory[TA];
+        PC <<= 8;
+        PC |= memory[TA+1];
+        PC <<= 8;
+        PC |= memory[TA+2];
+    }
 }
