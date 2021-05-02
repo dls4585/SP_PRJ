@@ -350,19 +350,3 @@ void replaceTab(char* string) {
         strncpy(find, " ",1);
     }
 }
-
-/*
- * 목적 : 문자열 슬라이싱
- * 리턴값 없음
- */
-void str_slice(char *dest, const char *src, int start, int size) {
-    int j = 0;
-    for (int i = start; i < start+size; ++i, ++j) {
-        dest[j] = src[i];
-    }
-    dest[j] = '\0';
-//    src += start;   // 시작 위치로 변경
-//    while (size-- > 0 && *src != '\0')   // size가 0보다 크고, 문자열 끝이 지나지 않은 경우
-//        *(dest++) = *(src++);   // 복사
-//    *dest = '\0';    // 끝에 널 문자 처리
-}

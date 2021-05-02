@@ -48,7 +48,7 @@ extern int last_address;
 extern int PC;
 extern int CSADDR;
 extern int PROG_ADDRESS;
-extern int CSLTH;
+extern int CS_LENGTH;
 extern int PROG_LENGTH;
 extern int nextPC;
 extern int A, X, L, S, B, T;
@@ -132,7 +132,6 @@ void insert_opcode(bucket* hashtable, hash_node* hash);
 hash_node* search_opcode(bucket* hashtable, char* mnemonic);
 
 void replaceTab(char* string);
-void str_slice(char *dest, const char *src, int start, int size);
 
 void symtab_init(bucket* symtab);
 void insert_symbol(bucket* symtab, symbol_node* symbol);
@@ -147,6 +146,8 @@ line_node* create_line_node(int line, int LOCCTR, char symbol[], char mnemonic[]
 
 int write_lst_file(line_list* list, char* filename);
 int write_obj_file(line_list* list, char* filename, const int* prgm_len);
+
+void str_slice(char *dest, const char *src, int start, int size);
 
 int load_pass1(bucket* estab, char* file1, char* file2, char* file3, int files_num);
 int load_pass2(bucket* estab, char* file1, char* file2, char* file3, int files_num);
@@ -167,6 +168,6 @@ void store(const int* reg, int TA, int ni_bits);
 void load(int* reg, int TA, int ni_bits);
 void jump(int TA, int ni_bits);
 
-int check_BP(int* BP_list, int BP_count);
+int check_BP(const int* BP_list, int BP_count);
 void print_registers();
 

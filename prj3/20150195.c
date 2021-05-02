@@ -7,7 +7,7 @@ int last_address = 0;
 int PC = 0;
 int CSADDR = 0;
 int PROG_ADDRESS = 0;
-int CSLTH = 0;
+int CS_LENGTH = 0;
 int PROG_LENGTH = 0;
 int nextPC = 0;
 int A = 0, X = 0, L = 0, S = 0, B = 0, T = 0;
@@ -85,7 +85,6 @@ int main() {
             continue;
         }
 
-        // cmd == "quit" or "q"
         if(strcmp(cmd_token[0], "quit") == 0 || strcmp(cmd_token[0], "q") == 0) {
             if(!cmd_valid_check(tokens, QUIT)) {
                 clear(cmd, cmd_token, tokens);
@@ -112,8 +111,9 @@ int main() {
             printf("h[elp]\nd[ir]\nq[uit]\nhi[story]\n"
                    "du[mp] [start, end]\ne[dit] address, value\n"
                    "f[ill] start, end, value\nreset\nopcode mnemonic\nopcodelist\n"
-                   "assemble filename\ntype filename\nsymbol\n");
-
+                   "assemble filename\ntype filename\nsymbol\n"
+                   "progaddr\nloader [object filename1] [object filename2] [object filename3]\n"
+                   "bp [loc] or [clear]\nrun\n");
         }
             // cmd == "dir" or "d"
         else if(strcmp(cmd_token[0], "dir") == 0 || strcmp(cmd_token[0], "d") == 0) {
@@ -243,7 +243,7 @@ int main() {
                         end = start + 159;
                     }
                 }
-                // start와 end 인자가 들어온 경우
+                    // start와 end 인자가 들어온 경우
                 else {
                     end = (int)strtol(cmd_token[2], NULL, 16);
                     if(args_check(cmd_token[1]) == FAIL || args_check(cmd_token[2]) == FAIL) {
@@ -592,25 +592,29 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "progaddr"
+            // cmd == "progaddr"
         else if(strcmp(cmd_token[0], "progaddr") == 0) {
             if(!cmd_valid_check(tokens, PROGADDR)) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+            // 인자를 16진수 정수로 변환하여 PC에 저장한다.
             PC = (int)strtol(cmd_token[1], NULL, 16);
+            // PC의 범위(인자의 범위)를 검사한다.
             if(PC > MAX_MEMORY_SIZE || PC < 0) {
                 PC = 0;
                 printf("wrong address, address must be between 0x00 ~ 0xFFFFF\n");
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+            // 프로그램 시작 주소를 인자로 받은 값으로 지정한다.
             PROG_ADDRESS = PC;
+
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "loader"
+            // cmd == "loader"
         else if(strcmp(cmd_token[0], "loader") == 0) {
             if(!cmd_valid_check(tokens, LOADER)) {
                 clear(cmd, cmd_token, tokens);
@@ -622,15 +626,18 @@ int main() {
 
             estab_init(estab);
 
+            // linking loader 2-pass 알고리즘의 pass1을 수행한다.
             if(load_pass1(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
 
+            // ESTAB에 저장된 ES의 개수를 센다.
             for (int i = 0; i < HASH_SIZE; ++i) {
                 es_count += estab[i].count;
             }
 
+            // ESTAB을 정렬하기 위해 sorted_estab에 복사해 저장한다.
             ES_node** sorted_estab = (ES_node**)malloc(sizeof(ES_node)*es_count);
             int j = 0;
             for(int i = 0; i < HASH_SIZE; ++i) {
@@ -651,11 +658,13 @@ int main() {
                 }
             }
 
+            // linking loader 2-pass 알고리즘의 pass2를 실행한다.
             if(load_pass2(estab, cmd_token[1], cmd_token[2], cmd_token[3], files_num) == FAIL) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
 
+            // LOAD MAP을 출력한다.
             printf("control symbol  address length\n");
             printf("section name\n");
             for (int i = 0; i < 32; ++i) {
@@ -679,6 +688,7 @@ int main() {
             printf("\n");
             printf("\t\ttotal length\t%04X\n", PROG_LENGTH);
 
+            // 각 레지스터의 값을 초기화한다.
             A = 0, X = 0, B = 0, S = 0, T = 0, L = PROG_LENGTH;
             PC = PROG_ADDRESS;
 
@@ -686,47 +696,52 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "bp"
+            // cmd == "bp"
         else if(strcmp(cmd_token[0], "bp") == 0) {
             if(!cmd_valid_check(tokens, BP)) {
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
-            int arg;
-            if(tokens == 2) {
-                arg = (int)strtol(cmd_token[1], NULL, 16);
+            if(tokens == 2) { // BP와 함께 인자가 들어왔을 경우
+                // 인자가 clear라면
                 if(strcmp(cmd_token[1], "clear") == 0) {
+                    // 모든 BP를 없애고
                     for (int i = 0; i < BP_count; ++i) {
-                        BP_list[i] = 0;
+                        BP_list[i] = NO;
                     }
+                    // BP_count를 0으로 초기화한다.
                     BP_count = 0;
                     printf("[");
                     printf(CYN "ok");
                     printf(CRESET "] clear all breakpoints\n");
                 }
                 else {
-//                    if(arg > 0xFF) {
-//                        printf("Wrong argumnet.\n");
-//                        clear(cmd, cmd_token, tokens);
-//                        continue;
-//                    }
-                    if(BP_count > BP_max) {
+                    // 인자가 LOC으로 들어온 경우
+                    int arg = (int)strtol(cmd_token[1], NULL, 16);
+                    // BP를 새롭게 저장했을 경우 BP_list에 저장할 수 없으면 새로운 크기의 배열을 할당받는다.
+                    if(BP_count+1 > BP_max) {
                         int* backup = BP_list;
+                        // 새로운 크기의 배열에 할당했으면 원래의 주소로 다시 되돌리고 에러 처리한다.
                         if((BP_list = (int*)realloc(BP_list, sizeof(int)*(BP_max + 10))) == NULL) {
                             printf("no more memory to add BP.\n");
                             BP_list = backup;
                             clear(cmd, cmd_token, tokens);
                             continue;
                         }
+                        BP_max += 10;
                     }
+                    // BP_list에 인자로 받은 값을 새로 저장한다.
                     BP_list[BP_count] = arg;
+
                     printf("[");
                     printf(CYN "ok");
                     printf(CRESET "] create breakpoint %X\n", BP_list[BP_count]);
                     BP_count++;
                 }
             }
+                // 인자로 아무것도 들어오지 않았을 경우
             else {
+                // 모든 BP를 출력한다.
                 printf("\t\tbreakpoint\n\t\t");
                 for (int i = 0; i < 10; ++i) {
                     printf("- ");
@@ -741,7 +756,7 @@ int main() {
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // cmd == "run"
+            // cmd == "run"
         else if(strcmp(cmd_token[0], "run") == 0) {
             if(!cmd_valid_check(tokens, RUN)) {
                 clear(cmd, cmd_token, tokens);
@@ -749,26 +764,36 @@ int main() {
             }
             int result;
 
+            /*
+             * run을 수행한다.
+             */
+
+            // run의 결과가 FAIL인 경우값 에러 처리한다.
             if((result = run(BP_list, BP_count, optab)) == FAIL) {
                 printf("running program stopped for some reason.\n");
                 clear(cmd, cmd_token, tokens);
                 continue;
             }
+                // run이 모두 성공적으로 마쳤을 경우
             else if(result == SUCCESS) {
+                // 레지스터의 현재 값을 출력한다.
                 print_registers();
                 printf("\t\tEnd Program\n");
-            } else if(result == PC) {
-                printf("\t\tStop at checkpoint[%X]\n", PC);
+            }
+                // run이 BP에 의해 중단된 경우
+            else if(result == PC) {
+                printf("\t\tStop at checkpoint[%X]\n", PC-PROG_ADDRESS);
             }
 
             // 명령어를 history 리스트에 추가
             Node* node = create_Node(cmd_token, tokens);
             list_push_back(history, node);
         }
-        // 해당하는 명령어가 없는 경우 에러 처리
+            // 해당하는 명령어가 없는 경우 에러 처리
         else {
             printf("Wrong command format, use help for command information\n");
         }
+        // cmd == "quit" or "q"
         // 반복문마다 cmd와 cmd_token을 초기화 하고 stdin을 rewind한다.
         clear(cmd, cmd_token, tokens);
     }
