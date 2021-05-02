@@ -1,0 +1,7 @@
+Project 1
+1. Program 컴파일 : Makefile이 정상적으로 있는지 확인 후 make 명령어를 통해 컴파일 및 링크한다.
+			math.h 헤더 파일을 include 하기 위해 Makefile에 gcc 명령어 끝에 -lm 옵션이 있는지 반드시 확인한다.
+			없으면 추가한다.
+2. Program 실행 : 20150195.out 파일이 정상적으로 생성되었는지 확인 후 ./20150195.out 을 입력해 실행한다.
+
+
