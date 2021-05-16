@@ -3,4 +3,4 @@ project(prj4 C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(prj4 main.c)
+add_executable(prj4 "Phase1/myshell.c" "Phase1/csapp.c")

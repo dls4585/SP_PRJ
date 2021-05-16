@@ -1,26 +1,26 @@
 /* $begin shellmain */
-#include "csapp.h"
-#include<errno.h>
+#include "myshell.h"
+#include <errno.h>
 #define MAXARGS   128
 
 /* Function prototypes */
 void eval(char *cmdline);
 int parseline(char *buf, char **argv);
-int builtin_command(char **argv); 
+int builtin_command(char **argv);
 
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
 
     while (1) {
-	/* Read */
-	printf("> ");                   
-	fgets(cmdline, MAXLINE, stdin); 
-	if (feof(stdin))
-	    exit(0);
+    	/* Read */
+        fprintf(stdout, "> ");
+        fgets(cmdline, MAXLINE, stdin);
+        if (feof(stdin))
+            exit(0);
 
-	/* Evaluate */
-	eval(cmdline);
+        /* Evaluate */
+        eval(cmdline);
     } 
 }
 /* $end shellmain */
@@ -37,30 +37,36 @@ void eval(char *cmdline)
     strcpy(buf, cmdline);
     bg = parseline(buf, argv); 
     if (argv[0] == NULL)  
-	return;   /* Ignore empty lines */
-    if (!builtin_command(argv)) { //quit -> exit(0), & -> ignore, other -> run
-        if (execve(argv[0], argv, environ) < 0) {	//ex) /bin/ls ls -al &
-            printf("%s: Command not found.\n", argv[0]);
-            exit(0);
+	    return;   /* Ignore empty lines */
+    if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        /* Concat /bin/ to argv[0] */
+        if (strncmp("/bin/", argv[0], 5) != 0) {
+            char temp[MAXBUF];
+            strcpy(temp, "/bin/");
+            strcat(temp, argv[0]);
+            argv[0] = temp;
+        }
+        if((pid = Fork()) == 0) { /* Child runs user job */
+            Execve(argv[0], argv, environ); // ex) /bin/ls ls -al &
         }
 
 	/* Parent waits for foreground job to terminate */
-	if (!bg){ 
-	    int status;
-	}
-	else//when there is backgrount process!
-	    printf("%d %s", pid, cmdline);
+        if (!bg){
+            int status;
+            pid_t retPid = Waitpid(pid, &status, 0);
+        }
+        else //when there is backgrount process!
+            printf("%d %s", pid, cmdline);
     }
-    return;
 }
 
 /* If first arg is a builtin command, run it and return true */
 int builtin_command(char **argv) 
 {
     if (!strcmp(argv[0], "quit")) /* quit command */
-	exit(0);  
+	    exit(0);
     if (!strcmp(argv[0], "&"))    /* Ignore singleton & */
-	return 1;
+	    return 1;
     return 0;                     /* Not a builtin command */
 }
 /* $end eval */
@@ -75,28 +81,27 @@ int parseline(char *buf, char **argv)
 
     buf[strlen(buf)-1] = ' ';  /* Replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* Ignore leading spaces */
-	buf++;
+	    buf++;
 
     /* Build the argv list */
     argc = 0;
     while ((delim = strchr(buf, ' '))) {
-	argv[argc++] = buf;
-	*delim = '\0';
-	buf = delim + 1;
-	while (*buf && (*buf == ' ')) /* Ignore spaces */
-            buf++;
+        argv[argc++] = buf;
+        *delim = '\0';
+        buf = delim + 1;
+        while (*buf && (*buf == ' ')) /* Ignore spaces */
+                buf++;
     }
     argv[argc] = NULL;
     
     if (argc == 0)  /* Ignore blank line */
-	return 1;
+	    return 1;
 
     /* Should the job run in the background? */
     if ((bg = (*argv[argc-1] == '&')) != 0)
-	argv[--argc] = NULL;
+	    argv[--argc] = NULL;
 
+//    check_arg(argv[0]);
     return bg;
 }
 /* $end parseline */
-
-
