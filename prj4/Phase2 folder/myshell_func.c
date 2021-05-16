@@ -39,7 +39,7 @@ void eval(char *cmdline)
                 char temp[MAXBUF];
                 strcpy(temp, "/bin/");
                 strcat(temp, argv[0]);
-                argv[0] = temp;
+                strcpy(argv[0], temp);
             }
             if((pid = Fork()) == 0) { /* Child runs user job */
                 Execve(argv[0], argv, environ); // ex) /bin/ls ls -al &
@@ -130,62 +130,69 @@ int exec_pipe(char** argv, int index[], const int pipe_count) {
     pid = (pid_t *) Malloc(sizeof(pid_t) * (pipe_count + 1));
 
     temp_argv = (char ***) Malloc(sizeof(char **) * (pipe_count+1));
+
     for (int j = 0; j <= pipe_count; ++j) {
+        /* Allocate Dynamic CHAR array for argv of each command */
         temp_argv[j] = (char**) Malloc(sizeof(char*)*MAXARGS);
+        for (int i = 0; i < MAXARGS; ++i) {
+            temp_argv[j][i] = (char *) Malloc(sizeof(char) * 64);
+        }
+
+        /* copy argv to temp argv */
         int i = 0;
         while (argv[n] != NULL) {
             if(strcmp(argv[n], "|") == 0) {
                 n++;
                 break;
             }
-            temp_argv[j][i] = argv[n++];
-            i++;
+            strcpy(temp_argv[j][i++], argv[n++]);
+        }
+        /* concat /bin/ in front of each command */
+        if (strncmp("/bin/", temp_argv[j][0], 5) != 0) {
+            char bin[MAXBUF] = {0,};
+            strcpy(bin, "/bin/");
+            strcat(bin, temp_argv[j][0]);
+            strcpy(temp_argv[j][0], bin);
         }
         temp_argv[j][i] = NULL;
-
-        if (strncmp("/bin/", temp_argv[j][0], 5) != 0) {
-            char temp[MAXBUF];
-            strcpy(temp, "/bin/");
-            strcat(temp, temp_argv[j][0]);
-            temp_argv[j][0] = temp;
-        }
     }
 
+    /* Make pipe */
     if (pipe(fd) < 0) {
         fprintf(stdout, "pipe error : %s\n", strerror(errno));
         return -1;
     }
     n = 0;
-    if ((pid[n++] = Fork()) == 0) { // ls
+    if ((pid[n++] = Fork()) == 0) { // First Command
         close(fd[0]);
         dup2(fd[1], STDOUT_FILENO);
         close(fd[1]);
         Execve(temp_argv[n - 1][0], temp_argv[n - 1], environ);
     }
     else {
-        while(n <= pipe_count) {
-            if ((pid[n++] = Fork() == 0)) {
-                if (n > pipe_count) { // last command
-                    close(fd[1]);
-                    dup2(fd[0], STDIN_FILENO);
-                    close(fd[0]);
-                    Execve(temp_argv[n - 1][0], temp_argv[n - 1], environ);
-                    break;
-                }
-                else { // mid command
-                    dup2(fd[0], STDIN_FILENO);
-                    dup2(fd[1], STDOUT_FILENO);
-                    close(fd[0]);
-                    close(fd[1]);
-                    Execve(temp_argv[n - 1][0], temp_argv[n - 1], environ);
-                }
-            }
-            else {
-                int status;
-                Waitpid(pid[n - 1], &status, 0);
-            }
+        if ((pid[n] = Fork()) == 0) { // Second Command
+            close(fd[1]);
+            dup2(fd[0], STDIN_FILENO);
+            close(fd[0]);
+            Execve(temp_argv[n][0], temp_argv[n], environ);
         }
+        else { // Parent reaps second command process
+            close(fd[1]);
+            int status;
+            Waitpid(pid[n - 1], &status, 0);
+        }
+        // Parent reaps first command process
+        int status;
+        Waitpid(pid[n - 2], &status, 0);
     }
+
+    for (int i = 0; i <= pipe_count; ++i) {
+        for (int j = 0; j < MAXARGS; ++j) {
+            free(temp_argv[i][j]);
+        }
+        free(temp_argv[i]);
+    }
+    free(temp_argv);
     return 1;
 }
 /* $end exec_pipe */
