@@ -16,7 +16,7 @@
  *   - rio_readnb: removed redundant EINTR check
  */
 /* $begin csapp.c */
-#include "myshell.h"
+#include "csapp.h"
 
 /************************** 
  * Error-handling functions
@@ -73,9 +73,10 @@ pid_t Fork(void)
 
 void Execve(const char *filename, char *const argv[], char *const envp[]) 
 {
-    if (execve(filename, argv, envp) < 0)
-//        printf("%s: Command not found.\n", argv[0]);
-	    unix_error("Execve error");
+    if (execve(filename, argv, envp) < 0) {
+        fprintf(stdout, "%s: Command not found.\n", argv[0]);
+        unix_error("Execve error");
+    }
 }
 
 /* $begin wait */
