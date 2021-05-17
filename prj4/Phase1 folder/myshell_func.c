@@ -79,7 +79,11 @@ int parseline(char *buf, char **argv)
     argc = 0;
     while ((delim = strchr(buf, ' '))) {
         argv[argc++] = buf;
-        *delim = '\0';
+        if(argv[argc-1][0] == '\"' || argv[argc-1][0] == '\'') {
+            argv[argc-1]++;
+            *(delim - 1) = '\0';
+        }
+        else *delim = '\0';
         buf = delim + 1;
         while (*buf && (*buf == ' ')) /* Ignore spaces */
             buf++;

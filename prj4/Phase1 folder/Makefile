@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Og
+CFLAGS = -Og -g
 LDLIBS = -lpthread
 
 PROGS = shellex
