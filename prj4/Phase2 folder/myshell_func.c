@@ -36,13 +36,19 @@ void eval(char *cmdline)
         } else {
             /* concat /bin/ in front of argv[0] */
             if (strncmp("/bin/", argv[0], 5) != 0) {
-                char temp[MAXBUF];
-                strcpy(temp, "/bin/");
-                strcat(temp, argv[0]);
-                strcpy(argv[0], temp);
+                char bin[MAXBUF] = {0,};
+                strcpy(bin, "/bin/");
+                strcat(bin, argv[0]);
+                argv[0] = bin;
             }
             if((pid = Fork()) == 0) { /* Child runs user job */
-                Execve(argv[0], argv, environ); // ex) /bin/ls ls -al &
+                if(execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
+                    char usr[MAXBUF] = {0,};
+                    strcpy(usr, "/usr");
+                    strcat(usr, argv[0]);
+                    argv[0] = usr;
+                    Execve(argv[0], argv, environ);
+                }
             }
 
             /* Parent waits for foreground job to terminate */
@@ -122,7 +128,6 @@ void cd(char* path) {
 
 /* $begin exec_pipe */
 int exec_pipe(char** argv, int index[], const int pipe_count) {
-    int fd[2];
     pid_t *pid;
     char ***temp_argv;
     int n = 0;
@@ -158,33 +163,64 @@ int exec_pipe(char** argv, int index[], const int pipe_count) {
     }
 
     /* Make pipe */
-    if (pipe(fd) < 0) {
-        fprintf(stdout, "pipe error : %s\n", strerror(errno));
-        return -1;
-    }
-    n = 0;
-    if ((pid[n++] = Fork()) == 0) { // First Command
-        close(fd[0]);
-        dup2(fd[1], STDOUT_FILENO);
-        close(fd[1]);
-        Execve(temp_argv[n - 1][0], temp_argv[n - 1], environ);
-    }
-    else {
-        if ((pid[n] = Fork()) == 0) { // Second Command
-            close(fd[1]);
-            dup2(fd[0], STDIN_FILENO);
-            close(fd[0]);
-            Execve(temp_argv[n][0], temp_argv[n], environ);
+    int **fds = (int **) Malloc(sizeof(int *) * pipe_count);
+    for (int i = 0; i < pipe_count; ++i) {
+        fds[i] = (int *) Malloc(sizeof(int) * 2);
+        if(pipe(fds[i]) < 0) {
+            fprintf(stdout, "pipe error : %s\n", strerror(errno));
+            return -1;
         }
-        else { // Parent reaps second command process
-            close(fd[1]);
-            int status;
-            Waitpid(pid[n - 1], &status, 0);
-        }
-        // Parent reaps first command process
-        int status;
-        Waitpid(pid[n - 2], &status, 0);
     }
+
+    int status;
+    for (int i = 0; i <= pipe_count; ++i) {
+        pid[i] = Fork();
+        if(i == 0) {
+            if (pid[i] == 0) {
+                close(fds[i][READ]);
+                dup2(fds[i][WRITE], STDOUT_FILENO);
+                close(fds[i][WRITE]);
+                search_and_execve(temp_argv[i][0], temp_argv[i]);
+            }
+            else {
+                Waitpid(pid[i], &status, 0);
+            }
+        }
+        else if (i == pipe_count) {
+            if(pid[i] == 0) {
+                close(fds[i - 1][WRITE]);
+                dup2(fds[i - 1][READ], STDIN_FILENO);
+                close(fds[i - 1][READ]);
+                search_and_execve(temp_argv[i][0], temp_argv[i]);
+            }
+            else {
+                close(fds[i - 1][WRITE]);
+                Waitpid(pid[i], &status, 0);
+            }
+        }
+        else {
+            if(pid[i] == 0) {
+                close(fds[i - 1][WRITE]);
+                dup2(fds[i - 1][READ], STDIN_FILENO);
+                close(fds[i - 1][READ]);
+
+                close(fds[i][READ]);
+                dup2(fds[i][WRITE], STDOUT_FILENO);
+                close(fds[i][WRITE]);
+
+                search_and_execve(temp_argv[i][0], temp_argv[i]);
+            }
+            else {
+                close(fds[i - 1][WRITE]);
+                Waitpid(pid[i], &status, 0);
+            }
+        }
+    }
+
+    for (int i = 0; i < pipe_count; ++i) {
+        free(fds[i]);
+    }
+    free(fds);
 
     for (int i = 0; i <= pipe_count; ++i) {
         for (int j = 0; j < MAXARGS; ++j) {
@@ -196,3 +232,15 @@ int exec_pipe(char** argv, int index[], const int pipe_count) {
     return 1;
 }
 /* $end exec_pipe */
+
+/* $begin search_and_execve */
+void search_and_execve(char* filename, char** argv) {
+    if(execve(filename, argv, environ) < 0) { // ex) /bin/ls ls -al &
+        char usr[MAXBUF] = {0,};
+        strcpy(usr, "/usr");
+        strcat(usr, filename);
+        strcpy(filename, usr);
+        Execve(filename, argv, environ);
+    }
+}
+/* $end search_and_execve */
