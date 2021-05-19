@@ -16,6 +16,7 @@ int main()
     while (1) {
     	/* Read */
         fflush(stderr);
+//        Sio_puts("> ");
         fprintf(stdout, "> ");
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))

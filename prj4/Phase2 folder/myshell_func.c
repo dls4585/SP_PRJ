@@ -38,13 +38,13 @@ void eval(char *cmdline)
         if (pipe_count > 0) {
             exec_pipe(argv, pipe_count);
         } else {
-            /* concat /bin/ in front of argv[0] */
-            if (strncmp("/bin/", argv[0], 5) != 0) {
-                strcpy(bin, "/bin/");
-                strcat(bin, argv[0]);
-                argv[0] = bin;
-            }
             if((pid = Fork()) == 0) { /* Child runs user job */
+                /* concat /bin/ in front of argv[0] */
+                if (strncmp("/bin/", argv[0], 5) != 0) {
+                    strcpy(bin, "/bin/");
+                    strcat(bin, argv[0]);
+                    argv[0] = bin;
+                }
                 /* if executable file does not exist in /bin/,
                     try /usr/bin */
                 if(execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
@@ -253,12 +253,14 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
 void search_and_execve(char* filename, char** argv) {
     /* if executable file does not exist in /bin/,
        try /usr/bin  */
-    if(execve(filename, argv, environ) < 0) {
-        char usr[MAXBUF] = {0,};
-        strcpy(usr, "/usr");
-        strcat(usr, filename);
-        strcpy(filename, usr);
-        Execve(filename, argv, environ);
+    if(!builtin_command(argv)) {
+        if(execve(filename, argv, environ) < 0) {
+            char usr[MAXBUF] = {0,};
+            strcpy(usr, "/usr");
+            strcat(usr, filename);
+            strcpy(filename, usr);
+            Execve(filename, argv, environ);
+        }
     }
 }
 /* $end search_and_execve */
