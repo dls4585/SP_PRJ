@@ -13,6 +13,12 @@
  *
  * Updated 2021/05/17 - 백인찬
  * - exec_pipe(), search_and_execve(), pipe_fork_execve() : newly added functions for pipe.
+ *
+ * Updated 2021/05/19 - 백인찬
+ * - implemented background process for un-piped command with &.
+ *
+ * Updated 2021/05/20 - 백인찬
+ * - implemented backgrond process for piped command with &.
  */
 
 #include "csapp.h"
@@ -20,6 +26,7 @@
 
 sigset_t mask, prev_mask;
 int ccount = 0;
+int bg_ccount = 0;
 handler_t* oldhandler;
 
 /* $begin eval */
@@ -38,56 +45,20 @@ void eval(char *cmdline)
     bg = parseline(buf, argv, &pipe_count);
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
-    if (!bg) {
-        if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
-            if (pipe_count > 0) {
-                exec_pipe(argv, pipe_count);
+    if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        if (pipe_count > 0) {
+            exec_pipe(argv, pipe_count);
+            if (!bg) {
+                /* Parent waits for foreground job to terminate */
+                ccount = pipe_count + 1;
+                while(ccount > 0) {
+                    if(Wait(NULL) > 0) {
+                        ccount--;
+                    }
+                }
             } else {
-                if((pid = Fork()) == 0) { /* Child runs user job */
-                    /* concat /bin/ in front of argv[0] */
-                    if (strncmp("/bin/", argv[0], 5) != 0) {
-                        strcpy(bin, "/bin/");
-                        strcat(bin, argv[0]);
-                        argv[0] = bin;
-                    }
-                    /* if executable file does not exist in /bin/,
-                        try /usr/bin */
-                    if(execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
-                        strcpy(usr, "/usr");
-                        strcat(usr, argv[0]);
-                        argv[0] = usr;
-                        Execve(argv[0], argv, environ);
-                    }
-                }
-                else {
-                    /* Parent waits for foreground job to terminate */
-                    int status;
-                    Wait(NULL);
-//                    Waitpid(pid, &status, 0);
-                }
-            }
-        }
-    }
-    else {
-        if(!builtin_command(argv)) {
-            if((pid = Fork()) == 0) {
-                if (strncmp("/bin/", argv[0], 5) != 0) {
-                    strcpy(bin, "/bin/");
-                    strcat(bin, argv[0]);
-                    argv[0] = bin;
-                }
-                /* if executable file does not exist in /bin/,
-                    try /usr/bin */
-                if(execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
-                    strcpy(usr, "/usr");
-                    strcat(usr, argv[0]);
-                    argv[0] = usr;
-                    Execve(argv[0], argv, environ);
-                }
-            }
-            else { //when there is backgrount process!
-                printf("%d %s", pid, cmdline);
-                ccount = pipe_count == 0 ? 1 : pipe_count;
+                //when there is backgrount process!
+                bg_ccount = pipe_count + 1;
                 oldhandler = Signal(SIGCHLD, SIGCHLD_handler);
 
                 Sigemptyset(&mask);
@@ -98,9 +69,46 @@ void eval(char *cmdline)
 
                 return;
             }
-        }
-    }
+        } else {
+            if ((pid = Fork()) == 0) { /* Child runs user job */
+                /* concat /bin/ in front of argv[0] */
+                if (strncmp("/bin/", argv[0], 5) != 0) {
+                    strcpy(bin, "/bin/");
+                    strcat(bin, argv[0]);
+                    argv[0] = bin;
+                }
+                /* if executable file does not exist in /bin/,
+                    try /usr/bin */
+                if (execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
+                    strcpy(usr, "/usr");
+                    strcat(usr, argv[0]);
+                    argv[0] = usr;
+                    Execve(argv[0], argv, environ);
+                }
+            }
+            else {
+                if (!bg) {
+                    /* Parent waits for foreground job to terminate */
+                    int status;
+                    Waitpid(pid, &status, 0);
+                } else {
+                    //when there is backgrount process!
+                    printf("%d %s", pid, cmdline);
+                    bg_ccount = 1;
+                    oldhandler = Signal(SIGCHLD, SIGCHLD_handler);
 
+                    Sigemptyset(&mask);
+                    Sigaddset(&mask, SIGINT);
+                    Sigaddset(&mask, SIGSTOP);
+                    Sigaddset(&mask, SIGCONT);
+                    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+                    return;
+                }
+            }
+        }
+
+    }
 }
 
 /* If first arg is a builtin command, run it and return true */
@@ -126,10 +134,18 @@ int parseline(char *buf, char **argv, int* pipe_count)
     char *delim;         /* Points to first space delimiter */
     int argc;            /* Number of args */
     int bg;              /* Background job? */
-
+    char* bgptr;
     buf[strlen(buf)-1] = ' ';  /* Replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* Ignore leading spaces */
         buf++;
+
+    /* Should the job run in the background? */
+    if ((bgptr = strchr(buf,'&')) != NULL) {
+//        argv[--argc] = NULL;
+        *bgptr = ' ';
+        bg = 1;
+    } else
+        bg = 0;
 
     /* Build the argv list */
     argc = 0;
@@ -152,10 +168,6 @@ int parseline(char *buf, char **argv, int* pipe_count)
 
     if (argc == 0)  /* Ignore blank line */
         return 1;
-
-    /* Should the job run in the background? */
-    if ((bg = (*argv[argc-1] == '&')) != 0)
-        argv[--argc] = NULL;
 
     return bg;
 }
@@ -248,7 +260,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
                 search_and_execve(argv[i][0], argv[i]);
             }
             else { // Process reaps first child
-                Waitpid(pid[i], &status, 0);
+//                Waitpid(pid[i], &status, 0);
             }
         }
             /* Last command */
@@ -261,7 +273,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
             }
             else { // Process reaps last child
                 close(fds[i - 1][WRITE]);
-                Waitpid(pid[i], &status, 0);
+//                Waitpid(pid[i], &status, 0);
             }
         }
             /* commands in the middle */
@@ -279,7 +291,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
             }
             else { // Process reaps last child
                 close(fds[i - 1][WRITE]);
-                Waitpid(pid[i], &status, 0);
+//                Waitpid(pid[i], &status, 0);
             }
         }
     }
@@ -308,12 +320,12 @@ void SIGCHLD_handler(int sig) {
     pid_t pid;
     int status;
     if((pid = Waitpid(-1, &status, WNOHANG)) > 0) {
-        ccount--;
-        Sio_puts("reaped child ");
-        Sio_putl((long) pid);
-        Sio_puts("\n");
+        bg_ccount--;
+//        Sio_puts("reaped child ");
+//        Sio_putl((long) pid);
+//        Sio_puts("\n");
     }
-    if (errno != 0) {
+    if (errno == ECHILD) {
         Sio_putl(errno);
         Sio_error("wait error");
     }
@@ -323,8 +335,5 @@ void SIGCHLD_handler(int sig) {
     }
     errno = olderrno;
 }
-
-
 /* $end SIGCHLD_handler */
-
 

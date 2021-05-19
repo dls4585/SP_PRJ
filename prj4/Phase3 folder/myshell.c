@@ -16,8 +16,9 @@ int main()
     while (1) {
     	/* Read */
         fflush(stderr);
-//        Sio_puts("> ");
-        fprintf(stdout, "> ");
+        fflush(stdout);
+//        fprintf(stdout, "> ");
+        Sio_puts("> ");
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
