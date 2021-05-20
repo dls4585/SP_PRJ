@@ -8,14 +8,13 @@ int parseline(char *buf, char **argv, int* pipe_count);
 int builtin_command(char **argv);
 void cd(char* path);
 
-int* exec_pipe(char** argv, const int pipe_count, const int bg);
-void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg);
+int* exec_pipe(char** argv, const int pipe_count);
+void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count);
 
 void search_and_execve(char* filename, char** argv);
 
 void SIGCHLD_handler(int sig);
-void SIGINT_handler(int sig);
-void SIGTSTP_handler(int sig);
+
 /* Data structure for built-in commands that support job control */
 
 #define RUNNING 0
@@ -26,32 +25,27 @@ void SIGTSTP_handler(int sig);
 #define S_JOBID 0
 #define S_PID 1
 
-handler_t* oldhandler;
-sigset_t mask_all, prev_all, mask_one, prev_one;
-int reaped;
-
-typedef struct jobNode {
+typedef struct BGNode {
     int job_id;
     int status;
     pid_t pid;
-    char cmdline[MAXLINE];
-    struct jobNode* prev;
-    struct jobNode* next;
-} jobNode;
+    char* cmdline;
+    struct BGNode* prev;
+    struct BGNode* next;
+} BGNode;
 
 typedef struct jobs_list {
     int count;
-    jobNode* head;
-    jobNode* tail;
+    BGNode* head;
+    BGNode* tail;
 } jobs_list;
 
-jobs_list* BGjobs;
-jobs_list* FGjobs;
+jobs_list* jobs;
 
-jobNode* create_jobNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid);
+BGNode* create_BGNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid);
 void jobs_list_init(jobs_list* jobsList);
-void insert_jobs(jobs_list* jobsList, jobNode* node);
-jobNode* search_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
-jobNode* delete_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
-jobNode* change_job_status(jobs_list* jobsList, int id, int status);
+void insert_jobs(jobs_list* jobsList, BGNode* node);
+BGNode* search_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
+BGNode* delete_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
+BGNode* change_job_status(jobs_list* jobsList, int id, int status);
 void print_jobs(jobs_list *jobsList);
