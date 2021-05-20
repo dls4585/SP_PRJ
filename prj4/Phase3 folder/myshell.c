@@ -12,13 +12,15 @@
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
+    jobs = (jobs_list *) Malloc(sizeof(jobs_list));
+    jobs_list_init(jobs);
 
     while (1) {
     	/* Read */
         fflush(stderr);
         fflush(stdout);
 //        fprintf(stdout, "> ");
-        Sio_puts("> ");
+        printf("> ");
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);

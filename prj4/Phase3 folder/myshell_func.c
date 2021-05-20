@@ -41,33 +41,41 @@ void eval(char *cmdline)
     char bin[MAXBUF] = {0,};
     char usr[MAXBUF] = {0,};
 
+    int* pids;
+
     strcpy(buf, cmdline);
     bg = parseline(buf, argv, &pipe_count);
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
         if (pipe_count > 0) {
-            exec_pipe(argv, pipe_count);
-            if (!bg) {
-                /* Parent waits for foreground job to terminate */
-                ccount = pipe_count + 1;
-                while(ccount > 0) {
-                    if(Wait(NULL) > 0) {
-                        ccount--;
+            if((pids = exec_pipe(argv, pipe_count)) != NULL) {
+                if (!bg) {
+                    /* Parent waits for foreground job to terminate */
+                    ccount = pipe_count + 1;
+                    while(ccount > 0) {
+                        if(Wait(NULL) > 0) {
+                            ccount--;
+                        }
                     }
+                } else {
+                    //when there is backgrount process!
+                    printf("%d\n", pids[pipe_count]);
+                    BGNode *new_bg = create_BGNode(jobs, RUNNING, cmdline, pids[0]);
+
+                    insert_jobs(jobs, new_bg);
+
+                    bg_ccount += (pipe_count + 1);
+                    oldhandler = Signal(SIGCHLD, SIGCHLD_handler);
+
+                    Sigemptyset(&mask);
+                    Sigaddset(&mask, SIGINT);
+                    Sigaddset(&mask, SIGSTOP);
+                    Sigaddset(&mask, SIGCONT);
+                    Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+                    return;
                 }
-            } else {
-                //when there is backgrount process!
-                bg_ccount = pipe_count + 1;
-                oldhandler = Signal(SIGCHLD, SIGCHLD_handler);
-
-                Sigemptyset(&mask);
-                Sigaddset(&mask, SIGINT);
-                Sigaddset(&mask, SIGSTOP);
-                Sigaddset(&mask, SIGCONT);
-                Sigprocmask(SIG_BLOCK, &mask, &prev_mask);
-
-                return;
             }
         } else {
             if ((pid = Fork()) == 0) { /* Child runs user job */
@@ -89,12 +97,15 @@ void eval(char *cmdline)
             else {
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
-                    int status;
-                    Waitpid(pid, &status, 0);
+                    Wait(NULL);
                 } else {
                     //when there is backgrount process!
                     printf("%d %s", pid, cmdline);
-                    bg_ccount = 1;
+                    BGNode *new_bg = create_BGNode(jobs, RUNNING, cmdline, pid);
+
+                    insert_jobs(jobs, new_bg);
+
+                    bg_ccount++;
                     oldhandler = Signal(SIGCHLD, SIGCHLD_handler);
 
                     Sigemptyset(&mask);
@@ -120,6 +131,10 @@ int builtin_command(char **argv)
         return 1;
     if (!strcmp(argv[0], "cd")) {
         cd(argv[1]);
+        return 1;
+    }
+    if(!strcmp(argv[0], "jobs")) {
+        print_jobs(jobs);
         return 1;
     }
 
@@ -181,7 +196,7 @@ void cd(char* path) {
 /* $end cd */
 
 /* $begin exec_pipe */
-int exec_pipe(char** argv, const int pipe_count) {
+int* exec_pipe(char** argv, const int pipe_count) {
     pid_t *pid;
     char ***pipe_argv;
     int n = 0;
@@ -222,7 +237,7 @@ int exec_pipe(char** argv, const int pipe_count) {
         fds[i] = (int *) Malloc(sizeof(int) * 2);
         if(pipe(fds[i]) < 0) {
             fprintf(stdout, "pipe error : %s\n", strerror(errno));
-            return -1;
+            return NULL;
         }
     }
 
@@ -241,7 +256,7 @@ int exec_pipe(char** argv, const int pipe_count) {
         free(pipe_argv[i]);
     }
     free(pipe_argv);
-    return 1;
+    return pid;
 }
 /* $end exec_pipe */
 
@@ -319,17 +334,21 @@ void SIGCHLD_handler(int sig) {
     int olderrno = errno;
     pid_t pid;
     int status;
+    BGNode* ret;
     if((pid = Waitpid(-1, &status, WNOHANG)) > 0) {
         bg_ccount--;
-//        Sio_puts("reaped child ");
-//        Sio_putl((long) pid);
-//        Sio_puts("\n");
+        if ((ret = search_jobs(jobs, 0, pid, S_PID)) != NULL) {
+            change_job_status(jobs, ret->job_id, DONE);
+            printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
+            delete_jobs(jobs, 0, ret->pid, S_PID);
+            free(ret);
+        }
     }
     if (errno == ECHILD) {
         Sio_putl(errno);
         Sio_error("wait error");
     }
-    if(ccount == 0) {
+    if(bg_ccount == 0) {
         Sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         Signal(SIGCHLD, oldhandler);
     }
@@ -337,3 +356,155 @@ void SIGCHLD_handler(int sig) {
 }
 /* $end SIGCHLD_handler */
 
+
+
+/* $begin create_BGNode */
+BGNode* create_BGNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid) {
+    BGNode *node = (BGNode *) Malloc(sizeof(BGNode));
+    node->job_id = jobsList->count == 0 ? 1 : jobsList->tail->job_id + 1;
+    node->status = status;
+    node->cmdline = cmdline;
+    node->pid = pid;
+    node->prev = NULL;
+    node->next = NULL;
+
+    return node;
+}
+/* $end create_BGNode */
+
+/* $begin jobs_list_init */
+void jobs_list_init(jobs_list* jobsList) {
+    jobsList->head = NULL;
+    jobsList->tail = NULL;
+    jobsList->count = 0;
+}
+/* $end jobs_list_init */
+
+/* $begin insert_jobs */
+void insert_jobs(jobs_list* jobsList, BGNode* node) {
+    if(jobsList->count == 0) {
+        jobsList->head = node;
+        jobsList->tail = node;
+        jobsList->count++;
+    }
+    else {
+        jobsList->tail->next = node;
+        node->prev = jobsList->tail;
+        jobsList->tail = node;
+        jobsList->count++;
+    }
+}
+/* $end insert_jobs */
+
+/* $begin search_jobs */
+BGNode *search_jobs(jobs_list *jobsList, int id, pid_t pid, int option) {
+    BGNode* current;
+    switch (option) {
+        case S_JOBID:
+            for (current = jobsList->head; current != NULL ; current = current->next) {
+                if (current->job_id == id) {
+                    return current;
+                }
+            }
+            break;
+        case S_PID:
+            for (current = jobsList->head; current != NULL ; current = current->next) {
+                if (current->pid == pid) {
+                    return current;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    return NULL;
+}
+/* $end search_jobs */
+
+/* $begin delete_jobs */
+BGNode* delete_jobs(jobs_list* jobsList, int id, pid_t pid, int option) {
+    BGNode* current;
+    switch (option) {
+        case S_JOBID:
+            for (current = jobsList->head; current != NULL ; current = current->next) {
+                if(current->job_id == id) {
+                    BGNode* ret = current;
+                    if (current->prev != NULL) {
+                        current->prev->next = current->next;
+                    }
+                    else {
+                        current->next->prev = NULL;
+                    }
+                    if (current->next != NULL) {
+                        current->next->prev = current->prev;
+                    }
+                    else {
+                        current->prev->next = NULL;
+                    }
+                    jobs->count--;
+                    return ret;
+                }
+            }
+            break;
+        case S_PID:
+            for (current = jobsList->head; current != NULL ; current = current->next) {
+                if(current->pid == pid) {
+                    BGNode* ret = current;
+                    if (current->prev != NULL && current->next != NULL) {
+                        current->prev->next = current->next;
+                        current->next->prev = current->prev;
+                    }
+                    else if (current->prev == NULL && current->next != NULL) {
+                        current->next->prev = current->prev;
+                    }
+                    else if (current->prev != NULL && current->next == NULL) {
+                        current->prev->next = current->next;
+                    }
+                    jobs->count--;
+                    return ret;
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
+    return NULL;
+}
+/* $end delete_jobs */
+
+/* $begin change_job_status */
+BGNode* change_job_status(jobs_list* jobsList, int id, int status) {
+    BGNode* current;
+    for (current = jobsList->head; current != NULL ; current = current->next) {
+        if(current->job_id == id) {
+            current->status = status;
+            return current;
+        }
+    }
+    return NULL;
+}
+/* $end change_job_status */
+
+/* $begin print_jobs */
+void print_jobs(jobs_list *jobsList) {
+    BGNode *current;
+    for (current = jobsList->head; current != NULL; current = current->next) {
+        switch (current->status) {
+            case RUNNING:
+            case KILLED:
+                printf("[%d] Running\t\t%s\n", current->job_id, current->cmdline);
+                break;
+            case DONE:
+                printf("[%d] Done\t\t%s\n", current->job_id, current->cmdline);
+                break;
+            case STOPPED:
+                printf("[%d] Stopped\t\t%s\n", current->job_id, current->cmdline);
+                break;
+            default:
+                break;
+        }
+    }
+}
+/* $end print_jobs */

@@ -20,21 +20,29 @@ void eval(char *cmdline)
     char buf[MAXLINE];   /* Holds modified command line */
     int bg;              /* Should the job run in bg or fg? */
     pid_t pid;           /* Process id */
+    char bin[MAXBUF] = {0,};
+    char usr[MAXBUF] = {0,};
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
-        /* concat /bin/ in front of argv[0] */
-        if (strncmp("/bin/", argv[0], 5) != 0) {
-            char temp[MAXBUF];
-            strcpy(temp, "/bin/");
-            strcat(temp, argv[0]);
-            argv[0] = temp;
-        }
         if((pid = Fork()) == 0) { /* Child runs user job */
-            Execve(argv[0], argv, environ); // ex) /bin/ls ls -al &
+            /* concat /bin/ in front of argv[0] */
+            if (strncmp("/bin/", argv[0], 5) != 0) {
+                strcpy(bin, "/bin/");
+                strcat(bin, argv[0]);
+                argv[0] = bin;
+            }
+            /* if executable file does not exist in /bin/,
+                try /usr/bin */
+            if(execve(argv[0], argv, environ) < 0) { // ex) /bin/ls ls -al &
+                strcpy(usr, "/usr");
+                strcat(usr, argv[0]);
+                argv[0] = usr;
+                Execve(argv[0], argv, environ);
+            }
         }
 
         /* Parent waits for foreground job to terminate */
