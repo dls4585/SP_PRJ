@@ -12,11 +12,22 @@
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
-    jobs = (jobs_list *) Malloc(sizeof(jobs_list));
-    jobs_list_init(jobs);
+    BGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
+    FGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
+    jobs_list_init(BGjobs);
+    jobs_list_init(FGjobs);
+
+    Sigfillset(&mask_all);
+    Sigemptyset(&mask_one);
+    Sigaddset(&mask_one, SIGCHLD);
+    oldhandler = Signal(SIGCHLD, FG_SIGCHLD_handler);
+
+    Signal(SIGINT, SIGINT_handler);
+    Signal(SIGTSTP, SIGTSTP_handler);
 
     while (1) {
-    	/* Read */
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        /* Read */
         fflush(stderr);
         fflush(stdout);
 //        fprintf(stdout, "> ");
