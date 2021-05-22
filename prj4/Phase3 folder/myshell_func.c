@@ -63,7 +63,6 @@ void eval(char *cmdline)
             }
         } else {
             if ((pid = Fork()) == 0) { /* Child runs user job */
-                Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
                 /* concat /bin/ in front of argv[0] */
@@ -384,7 +383,6 @@ void search_and_execve(char* filename, char** argv) {
     /* if executable file does not exist in /bin/,
        try /usr/bin  */
     if(!builtin_command(argv)) {
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         if(execve(filename, argv, environ) < 0) {
             char usr[MAXBUF] = {0,};
             strcpy(usr, "/usr");

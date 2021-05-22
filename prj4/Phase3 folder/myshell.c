@@ -24,9 +24,9 @@ int main()
 
     Signal(SIGINT, SIGINT_handler);
     Signal(SIGTSTP, SIGTSTP_handler);
-
+    Sigprocmask(SIG_SETMASK, &mask_all, &prev_all);
+    Sigprocmask(SIG_SETMASK, &prev_all, NULL);
     while (1) {
-        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         /* Read */
         fflush(stderr);
         fflush(stdout);
