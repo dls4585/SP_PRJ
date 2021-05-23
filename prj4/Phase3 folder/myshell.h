@@ -13,8 +13,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
 
 void search_and_execve(char* filename, char** argv);
 
-void BG_SIGCHLD_handler(int sig);
-void FG_SIGCHLD_handler(int sig);
+void SIGCHLD_handler(int sig);
 void SIGINT_handler(int sig);
 void SIGTSTP_handler(int sig);
 /* Data structure for built-in commands that support job control */
@@ -29,7 +28,7 @@ void SIGTSTP_handler(int sig);
 
 handler_t* oldhandler;
 sigset_t mask_all, prev_all, mask_one, prev_one;
-
+int reaped;
 
 typedef struct jobNode {
     int job_id;

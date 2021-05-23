@@ -20,22 +20,25 @@ int main()
     Sigfillset(&mask_all);
     Sigemptyset(&mask_one);
     Sigaddset(&mask_one, SIGCHLD);
-    oldhandler = Signal(SIGCHLD, FG_SIGCHLD_handler);
 
     Signal(SIGINT, SIGINT_handler);
     Signal(SIGTSTP, SIGTSTP_handler);
-    Sigprocmask(SIG_SETMASK, &mask_all, &prev_all);
-    Sigprocmask(SIG_SETMASK, &prev_all, NULL);
+    Signal(SIGCHLD, SIGCHLD_handler);
+    // default set을 prev_all에 저장
     while (1) {
+
         /* Read */
         fflush(stderr);
         fflush(stdout);
 //        fprintf(stdout, "> ");
-        printf("> ");
+        printf("CSE4100-SP-P4> ");
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
-
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if(BGjobs->count == 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
         /* Evaluate */
         eval(cmdline);
     } 
