@@ -12,19 +12,33 @@
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
-    jobs = (jobs_list *) Malloc(sizeof(jobs_list));
-    jobs_list_init(jobs);
+    BGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
+    FGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
+    jobs_list_init(BGjobs);
+    jobs_list_init(FGjobs);
 
+    Sigfillset(&mask_all);
+    Sigemptyset(&mask_one);
+    Sigaddset(&mask_one, SIGCHLD);
+
+    Signal(SIGINT, SIGINT_handler);
+    Signal(SIGTSTP, SIGTSTP_handler);
+    Signal(SIGCHLD, SIGCHLD_handler);
+    // default set을 prev_all에 저장
     while (1) {
-    	/* Read */
+
+        /* Read */
         fflush(stderr);
         fflush(stdout);
 //        fprintf(stdout, "> ");
-        printf("> ");
+        printf("CSE4100-SP-P4> ");
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
-
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if(BGjobs->count == 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
         /* Evaluate */
         eval(cmdline);
     } 
