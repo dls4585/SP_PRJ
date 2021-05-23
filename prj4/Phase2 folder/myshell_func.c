@@ -206,7 +206,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
         if(i == 0) {
             if (pid[i] == 0) { // First child process runs first command
                 close(fds[i][READ]); // close READ end of pipe
-                dup2(fds[i][WRITE], STDOUT_FILENO); // duplicate STDOUT as WRITE end of pipe
+                Dup2(fds[i][WRITE], STDOUT_FILENO); // Duplicate STDOUT as WRITE end of pipe
                 close(fds[i][WRITE]); // close WRITE end of pipe
                 search_and_execve(argv[i][0], argv[i]);
             }
@@ -218,7 +218,7 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
         else if (i == pipe_count) {
             if(pid[i] == 0) { // Last child process runs last command
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe
-                dup2(fds[i - 1][READ], STDIN_FILENO); // duplicate STDIN as READ end of pipe
+                Dup2(fds[i - 1][READ], STDIN_FILENO); // Duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
                 search_and_execve(argv[i][0], argv[i]);
             }
@@ -231,11 +231,11 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count) {
         else {
             if(pid[i] == 0) { // middle child process runs command
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe connected with BEFORE command
-                dup2(fds[i - 1][READ], STDIN_FILENO); // duplicate STDIN as READ end of pipe
+                Dup2(fds[i - 1][READ], STDIN_FILENO); // Duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
 
                 close(fds[i][READ]); // close READ end of pipe connected with NEXT command
-                dup2(fds[i][WRITE], STDOUT_FILENO); // duplicate STDOUT as WRITE end of pipe
+                Dup2(fds[i][WRITE], STDOUT_FILENO); // Duplicate STDOUT as WRITE end of pipe
                 close(fds[i][WRITE]); // close WRITE end of pipe
 
                 search_and_execve(argv[i][0], argv[i]);
