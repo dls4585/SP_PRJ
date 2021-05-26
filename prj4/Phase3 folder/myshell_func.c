@@ -48,6 +48,10 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if(BGjobs->count != 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
         if (pipe_count > 0) {
             if((pids = exec_pipe(argv, pipe_count, bg)) != NULL) {
                 if (!bg) {
@@ -432,7 +436,7 @@ void SIGCHLD_handler(int sig) {
             free(ret);
         } else if((ret = search_jobs(BGjobs, 0, pid, S_PID)) != NULL) { // if process in background
             change_job_status(BGjobs, ret->job_id, DONE);
-            printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
+            printf("[%d] Done\t\t%s\n", ret->job_id, ret->cmdline);
             delete_jobs(BGjobs, 0, ret->pid, S_PID);
             free(ret);
         }
