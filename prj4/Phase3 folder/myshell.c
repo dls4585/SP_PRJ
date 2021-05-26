@@ -25,6 +25,11 @@ int main()
     Signal(SIGTSTP, SIGTSTP_handler);
     Signal(SIGCHLD, SIGCHLD_handler);
     // default set을 prev_all에 저장
+
+    for (int i = 0; i < 20; ++i) {
+        hash_table[i].head = NULL;
+        hash_table[i].count = 0;
+    }
     while (1) {
 
         /* Read */
@@ -35,8 +40,7 @@ int main()
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
-        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
-        if(BGjobs->count == 0) {
+        if(BGjobs->count != 0) {
             Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         }
         /* Evaluate */

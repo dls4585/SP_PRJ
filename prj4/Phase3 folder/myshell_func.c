@@ -29,6 +29,52 @@
 #include "csapp.h"
 #include "myshell.h"
 
+
+p_pg* create_hash(pid_t pid, pid_t pgid) {
+    p_pg* node = (p_pg*) Malloc(sizeof(p_pg));
+    node->pid = pid;
+    node->pgid = pgid;
+    return node;
+}
+int hash_function(pid_t pid) {
+    return pid % 20;
+}
+void insert_hash(p_pg* ppg) {
+    int hash_index = hash_function(ppg->pid);
+    if(hash_table[hash_index].count == 0) {
+        hash_table[hash_index].head = ppg;
+        hash_table[hash_index].count++;
+    }
+    else {
+        ppg->next = hash_table[hash_index].head;
+        hash_table[hash_index].head = ppg;
+        hash_table[hash_index].count++;
+    }
+}
+int search_hash(pid_t pid) {
+    int hash_index = hash_function(pid);
+    p_pg* current = hash_table[hash_index].head;
+    for (; current != NULL; current = current->next) {
+        if(current->pid == pid) {
+            return current->pgid;
+        }
+    }
+    return -1;
+}
+
+void delete_hash(pid_t pid) {
+    int hash_index = hash_function(pid);
+    p_pg* current = hash_table[hash_index].head;
+    for (; current != NULL; current = current->next) {
+        if(current->pid == pid) {
+            hash_table[hash_index].head = current->next;
+            hash_table[hash_index].count--;
+            free(current);
+            return;
+        }
+    }
+}
+
 /* $begin eval */
 /* eval - Evaluate a command line */
 void eval(char *cmdline)
@@ -48,20 +94,44 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if (pipe_count > 0) {
-            if((pids = exec_pipe(argv, pipe_count, bg)) != NULL) {
+            ccount = pipe_count + 1;
+            if ((pid = Fork()) == 0) {
+                setpgid(0, 0);
+                Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+                Signal(SIGCHLD, SIGCHLD_handler);
+                Signal(SIGINT, SIG_DFL);
+                Signal(SIGTSTP, SIG_DFL);
+                exec_pipe(argv, pipe_count, bg, cmdline);
+                if(ccount == 0) exit(0);
+            }
+            else {
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
-
-                } else {
-                    //when there is backgrount process!
-                    printf("%d\n", pids[pipe_count]);
-                    return;
+                    int status;
+                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, pipe_count + 1, cmdline, pid);
+                    insert_jobs(FGjobs, new_fg);
+                    Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+                    Signal(SIGCHLD, SIG_DFL);
+                    while(waitpid(pid, &status, 0) > 0) {
+                        delete_jobs(FGjobs, 0, pid, S_PID);
+                        printf("reaped!\n");
+                        Signal(SIGCHLD, SIGCHLD_handler);
+                    }
                 }
             }
+//            if((pids = exec_pipe(argv, pipe_count, bg, cmdline)) != NULL) {
+//                return;
+//            }
         } else {
             if ((pid = Fork()) == 0) { /* Child runs user job */
+                setpgid(0, 0);
+                p_pg* node = create_hash(getpid(), getpgid(pid));
+                insert_hash(node);
                 Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
                 /* concat /bin/ in front of argv[0] */
@@ -82,9 +152,8 @@ void eval(char *cmdline)
             else {
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
-                    int status;
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid);
+                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, 1, cmdline, pid);
                     insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
@@ -93,7 +162,7 @@ void eval(char *cmdline)
                     //when there is backgrount process!
                     printf("%d %s", pid, cmdline);
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid);
+                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, 1, cmdline, pid);
                     insert_jobs(BGjobs, new_bg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     return;
@@ -124,7 +193,8 @@ int builtin_command(char **argv)
         jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
         if(job->status == STOPPED) {
             change_job_status(BGjobs, id, RUNNING);
-            kill(job->pid, SIGCONT);
+//            kill(job->pid, SIGCONT);
+            killpg(getpgid(job->pid), SIGCONT);
         }
         else if (job->status == RUNNING){
             printf("bg: job %d already in background\n", id);
@@ -135,7 +205,7 @@ int builtin_command(char **argv)
         return 1;
     }
     if(!strcmp(argv[0], "fg")) {
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+//        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         int id = (int) strtol(argv[1] + 1, NULL, 10);
         jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
@@ -147,8 +217,21 @@ int builtin_command(char **argv)
         insert_jobs(FGjobs, job);
         reaped = 0;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        kill(job->pid, SIGCONT);
+//        kill(job->pid, SIGCONT);
+        killpg(getpgid(job->pid), SIGCONT);
         while(!reaped);
+        return 1;
+    }
+    if(!strcmp(argv[0], "kill")) {
+        int id = (int) strtol(argv[1] + 1, NULL, 10);
+        jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        delete_jobs(BGjobs, id, 0, S_JOBID);
+//        reaped = 0;
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        killpg(getpgid(job->pid), SIGKILL);
+        free(job);
+//        while(!reaped);
         return 1;
     }
     if(!strcmp(argv[0], "fgjobs")) {
@@ -213,9 +296,10 @@ void cd(char* path) {
 }
 /* $end cd */
 
+
 /* $begin exec_pipe */
-int* exec_pipe(char** argv, const int pipe_count, const int bg) {
-    pid_t *pid;
+int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline) {
+    pid_t *pid, p;
     char ***pipe_argv;
     int n = 0;
 
@@ -259,7 +343,7 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg) {
         }
     }
 
-    pipe_fork_execve(pipe_argv, pid, fds, pipe_count, bg);
+    pipe_fork_execve(pipe_argv, pid, fds, pipe_count, bg, cmdline);
 
     /* free dynamically allocated variables */
     for (int i = 0; i < pipe_count; ++i) {
@@ -280,87 +364,90 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg) {
 
 
 /* $begin pipe_fork_execve */
-void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg) {
+void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg, char* cmdline) {
     int status;
+    pid_t pgid;
+    char cmd[MAXLINE];
+    strcpy(cmd, cmdline);
     for (int i = 0; i <= pipe_count; ++i) {
         pid[i] = Fork();
         /* First command */
         if(i == 0) {
             if (pid[i] == 0) { // First child process runs first command
+                p_pg* node = create_hash(getpid(), getpgid(getpid()));
+                insert_hash(node);
+                Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
-                Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+
                 close(fds[i][READ]); // close READ end of pipe
                 Dup2(fds[i][WRITE], STDOUT_FILENO); // Duplicate STDOUT as WRITE end of pipe
                 close(fds[i][WRITE]); // close WRITE end of pipe
                 search_and_execve(argv[i][0], argv[i]);
+                fprintf(stderr, "Failed to execute %s\n", argv[i][0]);
+
             }
-            else { // Process reaps first child
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
+            else {
+                Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
+//                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, pipe_count + 1, cmdline, getpgid(pid[i]));
+//                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
-                    Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-                    while(!reaped);
+                Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+                    while (!reaped);
                 } else {
                     //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
+                    printf("%d\n", pid[0]);
+
+                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);;
+                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, pipe_count + 1, cmdline, getpgid(pid[i]));
                     insert_jobs(BGjobs, new_bg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
+                ccount--;
             }
         }
             /* Last command */
         else if (i == pipe_count) {
             if(pid[i] == 0) { // Last child process runs last command
+                p_pg* node = create_hash(getpid(), pid[0]);
+                insert_hash(node);
+
                 Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
+
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe
                 Dup2(fds[i - 1][READ], STDIN_FILENO); // Duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
                 search_and_execve(argv[i][0], argv[i]);
+                fprintf(stderr, "Failed to execute %s\n", argv[i][0]);
             }
             else { // Process reaps last child
                 close(fds[i - 1][WRITE]);
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
-                if (!bg) {
+                Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+                if(!bg) {
                     /* Parent waits for foreground job to terminate */
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
                 } else {
-                    //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(BGjobs, new_bg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
+                ccount--;
             }
         }
             /* commands in the middle */
         else {
             if(pid[i] == 0) { // middle child process runs command
+                p_pg* node = create_hash(pid[i], getpgid(pid[i]));
+                insert_hash(node);
                 Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
+
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe connected with BEFORE command
                 Dup2(fds[i - 1][READ], STDIN_FILENO); // Duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
@@ -370,30 +457,22 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                 close(fds[i][WRITE]); // close WRITE end of pipe
 
                 search_and_execve(argv[i][0], argv[i]);
+                fprintf(stderr, "Failed to execute %s\n", argv[i][0]);
+
             }
             else { // Process reaps middle child
                 close(fds[i - 1][WRITE]);
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
-                if (!bg) {
+                Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+
+                if(!bg) {
                     /* Parent waits for foreground job to terminate */
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
                 } else {
-                    //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(BGjobs, new_bg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
+                ccount--;
             }
         }
     }
@@ -419,23 +498,33 @@ void search_and_execve(char* filename, char** argv) {
 /* $begin SIGCHLD_handler */
 void SIGCHLD_handler(int sig) {
     int olderrno = errno;
-    pid_t pid;
+    pid_t pid, pgid;
     int status;
     jobNode* ret;
 
     while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-        if((ret = search_jobs(FGjobs, 0, pid, S_PID)) != NULL) { // if process in foreground
-            reaped = 1;
-            change_job_status(FGjobs, ret->job_id, DONE);
-            delete_jobs(FGjobs, 0, ret->pid, S_PID);
-            free(ret);
-        } else if((ret = search_jobs(BGjobs, 0, pid, S_PID)) != NULL) { // if process in background
-            change_job_status(BGjobs, ret->job_id, DONE);
-            printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
-            delete_jobs(BGjobs, 0, ret->pid, S_PID);
-            free(ret);
+        pgid = search_hash(pid);
+        if((ret = search_jobs(FGjobs, 0, pgid, S_PID)) != NULL) { // if process in foreground
+            ret->count--;
+            if(ret->count == 0) {
+                change_job_status(FGjobs, ret->job_id, DONE);
+                delete_jobs(FGjobs, 0, ret->pid, S_PID);
+                free(ret);
+//                p_reaped = 1;
+            }
+        } else if((ret = search_jobs(BGjobs, 0, pgid, S_PID)) != NULL) { // if process in background
+            ret->count--;
+            if(ret->count == 0) {
+                change_job_status(BGjobs, ret->job_id, DONE);
+                printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
+                delete_jobs(BGjobs, 0, ret->pid, S_PID);
+                free(ret);
+//                p_reaped = 1;
+            }
         }
+        delete_hash(pid);
+        reaped = 1;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
     }
     if (errno != ECHILD && errno != 0) {
@@ -513,16 +602,13 @@ void SIGINT_handler(int sig) {
     jobNode* current;
 
     for (current = FGjobs->head; current != NULL; current = current->next) {
-        kill(current->pid, SIGINT);
-    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         change_job_status(FGjobs, current->job_id, KILLED);
         delete_jobs(FGjobs, 0, current->pid, S_PID);
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-
-        Waitpid(current->pid, &status, 0);
+        killpg(getpgid(current->pid), SIGINT);
     }
-    reaped = 1;
-
     errno = olderrno;
 }
 /* $end SIGINT_handler */
@@ -532,24 +618,24 @@ void SIGTSTP_handler(int sig) {
     int oldererrno = errno;
     jobNode *current;
     for (current = FGjobs->head; current != NULL; current = current->next) {
-    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         change_job_status(FGjobs, current->job_id, STOPPED);
         delete_jobs(FGjobs, 0, current->pid, S_PID);
         current->job_id = BGjobs->count == 0 ? 1 : BGjobs->tail->job_id+1;
         insert_jobs(BGjobs, current);
-        reaped = 1;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        kill(current->pid, SIGTSTP);
+        killpg(getpgid(current->pid), SIGTSTP);
     }
     errno = oldererrno;
 }
 /* $end SIGTSTP_handler */
 
 /* $begin create_jobNode */
-jobNode* create_jobNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid) {
+jobNode* create_jobNode(jobs_list* jobsList, int status, int count, char* cmdline, pid_t pid) {
     jobNode *node = (jobNode *) Malloc(sizeof(jobNode));
     node->job_id = jobsList->count == 0 ? 1 : jobsList->tail->job_id + 1;
     node->status = status;
+    node->count = count;
     strcpy(node->cmdline, cmdline);
     node->pid = pid;
     node->prev = NULL;
