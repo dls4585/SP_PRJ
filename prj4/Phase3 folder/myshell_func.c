@@ -51,7 +51,10 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
-
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if(BGPGs->count != 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
         if (pipe_count > 0) {
 
             if((pids = exec_pipe(argv, pipe_count, bg, cmdline)) != NULL) {
