@@ -48,6 +48,10 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        if(BGjobs->count != 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
         if (pipe_count > 0) {
             if((pids = exec_pipe(argv, pipe_count, bg)) != NULL) {
                 if (!bg) {
@@ -135,6 +139,7 @@ int builtin_command(char **argv)
         return 1;
     }
     if(!strcmp(argv[0], "fg")) {
+        int status;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         int id = (int) strtol(argv[1] + 1, NULL, 10);
         jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
@@ -432,7 +437,7 @@ void SIGCHLD_handler(int sig) {
             free(ret);
         } else if((ret = search_jobs(BGjobs, 0, pid, S_PID)) != NULL) { // if process in background
             change_job_status(BGjobs, ret->job_id, DONE);
-            printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
+            printf("[%d] Done\t\t%s\n", ret->job_id, ret->cmdline);
             delete_jobs(BGjobs, 0, ret->pid, S_PID);
             free(ret);
         }
@@ -445,66 +450,6 @@ void SIGCHLD_handler(int sig) {
     errno = olderrno;
 }
 /* $end SIGCHLD_handler */
-
-///* $begin BG_SIGCHLD_handler */
-//void BG_SIGCHLD_handler(int sig) {
-//    int olderrno = errno;
-//    pid_t pid;
-//    int status;
-//
-//    jobNode* ret;
-//
-//    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-//        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-//        bg_ccount--;
-//        bg_reaped = 1;
-//        if ((ret = search_jobs(BGjobs, 0, pid, S_PID)) != NULL) {
-//            change_job_status(BGjobs, ret->job_id, DONE);
-//            printf("[%d] Done\t\t%s", ret->job_id, ret->cmdline);
-//            delete_jobs(BGjobs, 0, ret->pid, S_PID);
-//            free(ret);
-//        }
-//        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-//        if(bg_ccount == 0) {
-//            Signal(SIGCHLD, FG_SIGCHLD_handler);
-//        }
-//    }
-//    if (errno != ECHILD && errno != 0) {
-//        Sio_putl(errno);
-//        Sio_error("wait error");
-//    }
-//    errno = olderrno;
-//}
-///* $end BG_SIGCHLD_handler */
-//
-///* $begin FG_SIGCHLD_handler */
-//void FG_SIGCHLD_handler(int sig) {
-//    int olderrno = errno;
-//    pid_t pid;
-//    int status;
-//    jobNode* ret;
-//
-//    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
-//        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-//        reaped = 1;
-//        ccount--;
-//        if ((ret = search_jobs(FGjobs, 0, pid, S_PID)) != NULL) {
-//            change_job_status(FGjobs, ret->job_id, DONE);
-//            delete_jobs(FGjobs, 0, ret->pid, S_PID);
-//            free(ret);
-//        }
-//        if(ccount == 0 && bg_reaped == 0) {
-//            Signal(SIGCHLD, BG_SIGCHLD_handler);
-//        }
-//        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-//    }
-//    if (errno != ECHILD && errno != 0) {
-//        Sio_putl(errno);
-//        Sio_error("wait error");
-//    }
-//    errno = olderrno;
-//}
-///* $end FG_SIGCHLD_handler */
 
 /* $begin SIGINT_handler */
 void SIGINT_handler(int sig) {

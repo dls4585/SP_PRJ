@@ -35,10 +35,7 @@ int main()
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
-        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
-        if(BGjobs->count == 0) {
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        }
+
         /* Evaluate */
         eval(cmdline);
     } 
