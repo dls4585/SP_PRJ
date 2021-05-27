@@ -24,6 +24,9 @@
  * Updated 2021/05/23 - 백인찬
  * - implemented builtin command : bg
  * - explicitly reaped when !bg.
+ *
+ * Updated 2021/05/27 - 백인찬
+ * - changed data structure for process group.
  */
 
 #include "csapp.h"
@@ -48,12 +51,10 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
-        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
-        if(BGjobs->count != 0) {
-            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        }
+
         if (pipe_count > 0) {
-            if((pids = exec_pipe(argv, pipe_count, bg)) != NULL) {
+
+            if((pids = exec_pipe(argv, pipe_count, bg, cmdline)) != NULL) {
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
 
@@ -86,10 +87,11 @@ void eval(char *cmdline)
             else {
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
-                    int status;
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid);
-                    insert_jobs(FGjobs, new_fg);
+                    int id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
+                    PG *pg = PG_create(id, 1, cmdline);
+                    pg->pids[0] = pid;
+                    PG_push_back(FGPGs, pg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
@@ -97,8 +99,10 @@ void eval(char *cmdline)
                     //when there is backgrount process!
                     printf("%d %s", pid, cmdline);
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid);
-                    insert_jobs(BGjobs, new_bg);
+                    int id = BGPGs->count == 0 ? 1 : BGPGs->tail->job_id + 1;
+                    PG *pg = PG_create(id, 1, cmdline);
+                    pg->pids[0] = pid;
+                    PG_push_back(BGPGs, pg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     return;
                 }
@@ -120,17 +124,19 @@ int builtin_command(char **argv)
         return 1;
     }
     if(!strcmp(argv[0], "jobs")) {
-        print_jobs(BGjobs);
+        PG_print(BGPGs);
         return 1;
     }
     if(!strcmp(argv[0], "bg")) {
         int id = (int) strtol(argv[1] + 1, NULL, 10);
-        jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
-        if(job->status == STOPPED) {
-            change_job_status(BGjobs, id, RUNNING);
-            kill(job->pid, SIGCONT);
+        PG *pg = PG_search(BGPGs, id, 0, S_JOBID);
+        if(pg->status == STOPPED) {
+            change_PG_status(BGPGs, pg, RUNNING);
+            for (int i = 0; i < pg->count; ++i) {
+                kill(pg->pids[i], SIGCONT);
+            }
         }
-        else if (job->status == RUNNING){
+        else if (pg->status == RUNNING){
             printf("bg: job %d already in background\n", id);
         }
         else {
@@ -140,24 +146,26 @@ int builtin_command(char **argv)
     }
     if(!strcmp(argv[0], "fg")) {
         int status;
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        int id = (int) strtol(argv[1] + 1, NULL, 10);
-        jobNode *job = search_jobs(BGjobs, id, 0, S_JOBID);
+//        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-        if(job->status == STOPPED) {
-            change_job_status(BGjobs, id, RUNNING);
+        int id = (int) strtol(argv[1] + 1, NULL, 10);
+        PG* pg = PG_search(BGPGs, id, 0, S_JOBID);
+        if(pg->status == STOPPED) {
+            change_PG_status(BGPGs, pg, RUNNING);
         }
-        delete_jobs(BGjobs, id, 0, S_JOBID);
-        job->job_id = FGjobs->count == 0 ? 1 : FGjobs->tail->job_id + 1;
-        insert_jobs(FGjobs, job);
+        PG_delete(BGPGs, pg);
+        pg->job_id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
+        PG_push_back(FGPGs, pg);
         reaped = 0;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        kill(job->pid, SIGCONT);
+        for (int i = 0; i < pg->count; ++i) {
+            kill(pg->pids[i], SIGCONT);
+        }
         while(!reaped);
         return 1;
     }
     if(!strcmp(argv[0], "fgjobs")) {
-        print_jobs(FGjobs);
+        PG_print(FGPGs);
         return 1;
     }
 
@@ -219,10 +227,22 @@ void cd(char* path) {
 /* $end cd */
 
 /* $begin exec_pipe */
-int* exec_pipe(char** argv, const int pipe_count, const int bg) {
+int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline) {
     pid_t *pid;
     char ***pipe_argv;
     int n = 0;
+    PG* pg;
+
+    if(!bg) {
+        int id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
+        pg = PG_create(id, pipe_count + 1, cmdline);
+        PG_push_back(FGPGs, pg);
+    }
+    else {
+        int id = BGPGs->count == 0 ? 1 : BGPGs->tail->job_id + 1;
+        pg = PG_create(id, pipe_count + 1, cmdline);
+        PG_push_back(BGPGs, pg);
+    }
 
     pid = (pid_t *) Malloc(sizeof(pid_t) * (pipe_count + 1));
 
@@ -264,7 +284,7 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg) {
         }
     }
 
-    pipe_fork_execve(pipe_argv, pid, fds, pipe_count, bg);
+    pipe_fork_execve(pipe_argv, pid, fds, pipe_count, bg, pg);
 
     /* free dynamically allocated variables */
     for (int i = 0; i < pipe_count; ++i) {
@@ -285,7 +305,7 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg) {
 
 
 /* $begin pipe_fork_execve */
-void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg) {
+void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg, PG* pg) {
     int status;
     for (int i = 0; i <= pipe_count; ++i) {
         pid[i] = Fork();
@@ -301,25 +321,17 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                 search_and_execve(argv[i][0], argv[i]);
             }
             else { // Process reaps first child
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
+                pg->pids[i] = pid[i];
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(BGjobs, new_bg);
+//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+//
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -337,25 +349,16 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
             }
             else { // Process reaps last child
                 close(fds[i - 1][WRITE]);
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
+                pg->pids[i] = pid[i];
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(BGjobs, new_bg);
+//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -378,25 +381,16 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
             }
             else { // Process reaps middle child
                 close(fds[i - 1][WRITE]);
-                char cmdline[64];
-                int j = 0;
-                strcpy(cmdline, argv[i][j++]);
-                while(argv[i][j] != NULL) {
-                    strcat(cmdline, argv[i][j++]);
-                }
+                pg->pids[i] = pid[i];
                 if (!bg) {
                     /* Parent waits for foreground job to terminate */
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_fg = create_jobNode(FGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(FGjobs, new_fg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-                    jobNode *new_bg = create_jobNode(BGjobs, RUNNING, cmdline, pid[i]);
-                    insert_jobs(BGjobs, new_bg);
+//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -426,211 +420,190 @@ void SIGCHLD_handler(int sig) {
     int olderrno = errno;
     pid_t pid;
     int status;
-    jobNode* ret;
+    PG* ret;
 
-    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-        if((ret = search_jobs(FGjobs, 0, pid, S_PID)) != NULL) { // if process in foreground
+    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        if((ret = PG_search(FGPGs, 0, pid, S_PID)) != NULL) { // if process in foreground
             reaped = 1;
-            change_job_status(FGjobs, ret->job_id, DONE);
-            delete_jobs(FGjobs, 0, ret->pid, S_PID);
-            free(ret);
-        } else if((ret = search_jobs(BGjobs, 0, pid, S_PID)) != NULL) { // if process in background
-            change_job_status(BGjobs, ret->job_id, DONE);
-            printf("[%d] Done\t\t%s\n", ret->job_id, ret->cmdline);
-            delete_jobs(BGjobs, 0, ret->pid, S_PID);
-            free(ret);
+            ret->remained--;
+            if(ret->remained == 0) {
+                change_PG_status(FGPGs, ret, DONE);
+                PG_delete(FGPGs, ret);
+                free(ret);
+            }
+        } else if((ret = PG_search(BGPGs, 0, pid, S_PID)) != NULL) { // if process in background
+            ret->remained--;
+            if (ret->remained == 0) {
+                change_PG_status(BGPGs, ret, DONE);
+                printf("[%d] Done\t\t%s\n", ret->job_id, ret->cmdline);
+                PG_delete(BGPGs, ret);
+                free(ret);
+            }
         }
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
     }
     if (errno != ECHILD && errno != 0) {
         Sio_putl(errno);
         Sio_error("wait error");
     }
     errno = olderrno;
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
 /* $end SIGCHLD_handler */
 
 /* $begin SIGINT_handler */
 void SIGINT_handler(int sig) {
     int olderrno = errno;
-    int status;
-    jobNode* current;
+    PG* current, *next;
 
-    for (current = FGjobs->head; current != NULL; current = current->next) {
-        kill(current->pid, SIGINT);
-    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-        change_job_status(FGjobs, current->job_id, KILLED);
-        delete_jobs(FGjobs, 0, current->pid, S_PID);
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-
-        Waitpid(current->pid, &status, 0);
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+    for (current = FGPGs->head; current != NULL; ) {
+        for (int i = 0; i < current->count; ++i) {
+            kill(current->pids[i], SIGINT);
+        }
+        change_PG_status(FGPGs, current, KILLED);
+        PG_delete(FGPGs, current);
+        next = current->next;
+        free(current);
+        current = next;
     }
+
     reaped = 1;
 
     errno = olderrno;
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
 /* $end SIGINT_handler */
 
 /* $begin SIGTSTP_handler */
 void SIGTSTP_handler(int sig) {
     int oldererrno = errno;
-    jobNode *current;
-    for (current = FGjobs->head; current != NULL; current = current->next) {
+    PG *current;
     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-        change_job_status(FGjobs, current->job_id, STOPPED);
-        delete_jobs(FGjobs, 0, current->pid, S_PID);
-        current->job_id = BGjobs->count == 0 ? 1 : BGjobs->tail->job_id+1;
-        insert_jobs(BGjobs, current);
-        reaped = 1;
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
-        kill(current->pid, SIGTSTP);
+    for (current = FGPGs->head; current != NULL; current = current->next) {
+        change_PG_status(FGPGs, current, STOPPED);
+        PG_delete(FGPGs, current);
+        current->job_id = BGPGs->count == 0 ? 1 : BGPGs->tail->job_id + 1;
+        PG_push_back(BGPGs, current);
+        for (int i = 0; i < current->count; ++i) {
+            kill(current->pids[i], SIGTSTP);
+        }
     }
+    reaped = 1;
     errno = oldererrno;
+    Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
 /* $end SIGTSTP_handler */
 
-/* $begin create_jobNode */
-jobNode* create_jobNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid) {
-    jobNode *node = (jobNode *) Malloc(sizeof(jobNode));
-    node->job_id = jobsList->count == 0 ? 1 : jobsList->tail->job_id + 1;
-    node->status = status;
-    strcpy(node->cmdline, cmdline);
-    node->pid = pid;
+/* $begin PGs_init */
+void PGs_init(PG_list* PGs) {
+    PGs->count = 0;
+    PGs->head = NULL;
+    PGs->tail = NULL;
+}
+/* $end PGs_init */
+
+/* $begin PG_create */
+PG* PG_create(int job_id, int count, char* cmd) {
+    PG *node = (PG *) Malloc(sizeof(PG));
+    node->job_id = job_id;
+    node->count = count;
+    node->pids = (pid_t *) Malloc(sizeof(pid_t) * count);
+
+    node->status = RUNNING;
+    node->remained = count;
+    strcpy(node->cmdline, cmd);
     node->prev = NULL;
     node->next = NULL;
 
     return node;
 }
-/* $end create_jobNode */
+/* $end PG_create */
 
-/* $begin jobs_list_init */
-void jobs_list_init(jobs_list* jobsList) {
-    jobsList->head = NULL;
-    jobsList->tail = NULL;
-    jobsList->count = 0;
-}
-/* $end jobs_list_init */
-
-/* $begin insert_jobs */
-void insert_jobs(jobs_list* jobsList, jobNode* node) {
-    if(jobsList->count == 0) {
-        jobsList->head = node;
-        jobsList->tail = node;
-        jobsList->count++;
+/* $begin PG_push_back */
+void PG_push_back(PG_list* PGs, PG* pg) {
+    if(PGs->head == PGs->tail) {
+        PGs->head = pg;
+        PGs->tail = pg;
     }
     else {
-        jobsList->tail->next = node;
-        node->prev = jobsList->tail;
-        jobsList->tail = node;
-        jobsList->count++;
+        PGs->tail->next = pg;
+        pg->prev = PGs->tail;
+        PGs->tail = pg;
     }
+    PGs->count++;
 }
-/* $end insert_jobs */
+/* $end PG_push_back */
 
-/* $begin search_jobs */
-jobNode *search_jobs(jobs_list *jobsList, int id, pid_t pid, int option) {
-    jobNode* current;
-    switch (option) {
-        case S_JOBID:
-            for (current = jobsList->head; current != NULL ; current = current->next) {
-                if (current->job_id == id) {
-                    return current;
-                }
+/* $begin PG_delete */
+void PG_delete(PG_list* PGs, PG* pg) {
+    PG* current;
+    for (current = PGs->head; current != NULL; current = current->next) {
+        if(current == pg) {
+            if (current->prev != NULL && current->next != NULL) { // 중간에 있을 때
+                current->prev->next = current->next;
+                current->next->prev = current->prev;
+            } else if (current->prev == NULL && current->next != NULL) { // head 일 때
+                current->next->prev = current->prev;
+                PGs->head = current->next;
+            } else if (current->prev != NULL && current->next == NULL) { // tail 일 때
+                current->prev->next = current->next;
+                PGs->tail = current->prev;
+            } else { // job이  유일
+                PGs->head = PGs->tail = NULL;
             }
-            break;
-        case S_PID:
-            for (current = jobsList->head; current != NULL ; current = current->next) {
-                if (current->pid == pid) {
-                    return current;
-                }
-            }
-            break;
-        default:
-            break;
-    }
-
-    return NULL;
-}
-/* $end search_jobs */
-
-/* $begin delete_jobs */
-jobNode* delete_jobs(jobs_list* jobsList, int id, pid_t pid, int option) {
-    jobNode* current;
-    switch (option) {
-        case S_JOBID:
-            for (current = jobsList->head; current != NULL ; current = current->next) {
-                if(current->job_id == id) {
-                    jobNode* ret = current;
-                    if (current->prev != NULL && current->next != NULL) { // 중간에 있을 때
-                        current->prev->next = current->next;
-                        current->next->prev = current->prev;
-                    }
-                    else if (current->prev == NULL && current->next != NULL) { // head 일 때
-                        current->next->prev = current->prev;
-                        jobsList->head = current->next;
-                    }
-                    else if (current->prev != NULL && current->next == NULL) { // tail 일 때
-                        current->prev->next = current->next;
-                        jobsList->tail = current->prev;
-                    }
-                    else { // job이  유일
-                        jobsList->head = jobsList->tail = NULL;
-                    }
-                    jobsList->count--;
-                    return ret;
-                }
-            }
-            break;
-        case S_PID:
-            for (current = jobsList->head; current != NULL ; current = current->next) {
-                if(current->pid == pid) {
-                    jobNode* ret = current;
-                    if (current->prev != NULL && current->next != NULL) { // 중간에 있을 때
-                        current->prev->next = current->next;
-                        current->next->prev = current->prev;
-                    }
-                    else if (current->prev == NULL && current->next != NULL) { // head 일 때
-                        current->next->prev = current->prev;
-                        jobsList->head = current->next;
-                    }
-                    else if (current->prev != NULL && current->next == NULL) { // tail 일 때
-                        current->prev->next = current->next;
-                        jobsList->tail = current->prev;
-                    }
-                    else { // job이  유일
-                        jobsList->head = jobsList->tail = NULL;
-                    }
-                    jobsList->count--;
-                    return ret;
-                }
-            }
-            break;
-        default:
-            break;
-    }
-
-    return NULL;
-}
-/* $end delete_jobs */
-
-/* $begin change_job_status */
-jobNode* change_job_status(jobs_list* jobsList, int id, int status) {
-    jobNode* current;
-    for (current = jobsList->head; current != NULL ; current = current->next) {
-        if(current->job_id == id) {
-            current->status = status;
-            return current;
+            PGs->count--;
+            return;
         }
     }
+}
+/* $end PG_delete */
+
+/* $begin PG_search */
+PG* PG_search(PG_list* PGs, int job_id, pid_t pid, int option) {
+    PG* current;
+    switch (option) {
+        case S_JOBID:
+            for (current = PGs->head; current != NULL ; current = current->next) {
+                if (current->job_id == job_id) {
+                    return current;
+                }
+            }
+            break;
+        case S_PID:
+            for (current = PGs->head; current != NULL ; current = current->next) {
+                for (int i = 0; i < current->count; ++i) {
+                    if(current->pids[i] == pid) {
+                        return current;
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+    }
+
     return NULL;
 }
-/* $end change_job_status */
+/* $end PG_search */
 
-/* $begin print_jobs */
-void print_jobs(jobs_list *jobsList) {
-    jobNode *current;
-    for (current = jobsList->head; current != NULL; current = current->next) {
+/* $begin change_PG_status */
+int change_PG_status(PG_list* PGs, PG* pg, int status) {
+    PG* current;
+    for (current = PGs->head; current != NULL; current = current->next) {
+        if(current == pg) {
+            current->status = status;
+            return 1;
+        }
+    }
+    return -1;
+}
+/* $end change_PG_status */
+
+/* $begin PG_print */
+void PG_print(PG_list* PGs) {
+    PG* current;
+    for (current = PGs->head; current != NULL; current = current->next) {
         switch (current->status) {
             case RUNNING:
             case KILLED:
@@ -647,4 +620,4 @@ void print_jobs(jobs_list *jobsList) {
         }
     }
 }
-/* $end print_jobs */
+/* $end PG_print */

@@ -12,10 +12,11 @@
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
-    BGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
-    FGjobs = (jobs_list *) Malloc(sizeof(jobs_list));
-    jobs_list_init(BGjobs);
-    jobs_list_init(FGjobs);
+    FGPGs = (PG_list *) Malloc(sizeof(PG_list));
+    BGPGs = (PG_list *) Malloc(sizeof(PG_list));
+
+    PGs_init(FGPGs);
+    PGs_init(BGPGs);
 
     Sigfillset(&mask_all);
     Sigemptyset(&mask_one);
@@ -35,9 +36,14 @@ int main()
         fgets(cmdline, MAXLINE, stdin);
         if (feof(stdin))
             exit(0);
+        Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
+        printf("%d\n", prev_one);
+        if(BGPGs->count != 0) {
+            Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        }
 
         /* Evaluate */
         eval(cmdline);
-    } 
+    }
 }
 /* $end shellmain */

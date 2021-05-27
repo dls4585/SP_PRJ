@@ -2,14 +2,37 @@
 #define READ 0
 #define WRITE 1
 
+sigset_t mask_all, mask_one, prev_one;
+int reaped;
+
+typedef struct process_group {
+    int job_id;
+    int status;
+    int count;
+    int remained;
+    char cmdline[MAXLINE];
+    pid_t *pids;
+    struct process_group* prev;
+    struct process_group* next;
+} PG;
+
+typedef struct PG_list {
+    int count;
+    PG* head;
+    PG* tail;
+} PG_list;
+
+PG_list* FGPGs;
+PG_list* BGPGs;
+
 /* Function prototypes */
 void eval(char *cmdline);
 int parseline(char *buf, char **argv, int* pipe_count);
 int builtin_command(char **argv);
 void cd(char* path);
 
-int* exec_pipe(char** argv, const int pipe_count, const int bg);
-void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg);
+int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline);
+void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg, PG* pg);
 
 void search_and_execve(char* filename, char** argv);
 
@@ -26,32 +49,10 @@ void SIGTSTP_handler(int sig);
 #define S_JOBID 0
 #define S_PID 1
 
-handler_t* oldhandler;
-sigset_t mask_all, prev_all, mask_one, prev_one;
-int reaped;
-
-typedef struct jobNode {
-    int job_id;
-    int status;
-    pid_t pid;
-    char cmdline[MAXLINE];
-    struct jobNode* prev;
-    struct jobNode* next;
-} jobNode;
-
-typedef struct jobs_list {
-    int count;
-    jobNode* head;
-    jobNode* tail;
-} jobs_list;
-
-jobs_list* BGjobs;
-jobs_list* FGjobs;
-
-jobNode* create_jobNode(jobs_list* jobsList, int status, char* cmdline, pid_t pid);
-void jobs_list_init(jobs_list* jobsList);
-void insert_jobs(jobs_list* jobsList, jobNode* node);
-jobNode* search_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
-jobNode* delete_jobs(jobs_list* jobsList, int id, pid_t pid, int option);
-jobNode* change_job_status(jobs_list* jobsList, int id, int status);
-void print_jobs(jobs_list *jobsList);
+void PGs_init(PG_list* PGs);
+PG* PG_create(int job_id, int count, char* cmd);
+void PG_push_back(PG_list* PGs, PG* pg);
+void PG_delete(PG_list* PGs, PG* pg);
+PG* PG_search(PG_list* PGs, int job_id, pid_t pid, int option);
+int change_PG_status(PG_list* PGs, PG* pg, int status);
+void PG_print(PG_list* PGs);
