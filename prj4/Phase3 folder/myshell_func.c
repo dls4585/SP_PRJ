@@ -27,10 +27,16 @@
  *
  * Updated 2021/05/27 - 백인찬
  * - changed data structure for process group.
+ *
+ * Updated 2021/05/29 - 백인찬
+ * - implemented less / man / more not to print result out on STDOUT.
  */
 
 #include "csapp.h"
 #include "myshell.h"
+
+extern PG* pgs[MAXARGS];
+extern int pgs_index;
 
 /* $begin eval */
 /* eval - Evaluate a command line */
@@ -45,6 +51,8 @@ void eval(char *cmdline)
     char usr[MAXBUF] = {0,};
 
     int* pids;
+
+    done_BGPG_print();
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv, &pipe_count);
@@ -63,7 +71,7 @@ void eval(char *cmdline)
 
                 } else {
                     //when there is backgrount process!
-                    printf("%d\n", pids[pipe_count]);
+                    printf("[%d] %d\n", PG_search(BGPGs, 0, pids[0], S_PID)->job_id, pids[0]);
                     return;
                 }
             }
@@ -77,6 +85,9 @@ void eval(char *cmdline)
                     strcpy(bin, "/bin/");
                     strcat(bin, argv[0]);
                     argv[0] = bin;
+                }
+                if(check_termcap(argv[0], bg) > 0) {
+                    dup2(nullfd, STDOUT_FILENO);
                 }
                 /* if executable file does not exist in /bin/,
                     try /usr/bin */
@@ -148,7 +159,6 @@ int builtin_command(char **argv)
         return 1;
     }
     if(!strcmp(argv[0], "fg")) {
-        int status;
 //        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         int id = (int) strtol(argv[1] + 1, NULL, 10);
@@ -167,8 +177,17 @@ int builtin_command(char **argv)
         while(!reaped);
         return 1;
     }
-    if(!strcmp(argv[0], "fgjobs")) {
-        PG_print(FGPGs);
+    if(!strcmp(argv[0], "kill")) {
+        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+        int id = (int) strtol(argv[1] + 1, NULL, 10);
+        PG *pg = PG_search(BGPGs, id, 0, S_JOBID);
+        change_PG_status(BGPGs, pg, KILLED);
+        PG_delete(BGPGs, pg);
+        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        for (int i = 0; i < pg->count; ++i) {
+            kill(pg->pids[i], SIGKILL);
+        }
+        free(pg);
         return 1;
     }
 
@@ -348,6 +367,9 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe
                 dup2(fds[i - 1][READ], STDIN_FILENO); // duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
+                if(check_termcap(argv[i][0], bg) > 0) {
+                    dup2(nullfd, STDOUT_FILENO);
+                }
                 search_and_execve(argv[i][0], argv[i]);
             }
             else { // Process reaps last child
@@ -425,7 +447,7 @@ void SIGCHLD_handler(int sig) {
     int status;
     PG* ret;
 
-        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
     while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
         if((ret = PG_search(FGPGs, 0, pid, S_PID)) != NULL) { // if process in foreground
             reaped = 1;
@@ -439,9 +461,8 @@ void SIGCHLD_handler(int sig) {
             ret->remained--;
             if (ret->remained == 0) {
                 change_PG_status(BGPGs, ret, DONE);
-                printf("[%d] Done\t\t%s\n", ret->job_id, ret->cmdline);
+                pgs[pgs_index++] = ret;
                 PG_delete(BGPGs, ret);
-                free(ret);
             }
         }
     }
@@ -450,7 +471,7 @@ void SIGCHLD_handler(int sig) {
         Sio_error("wait error");
     }
     errno = olderrno;
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+    Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
 /* $end SIGCHLD_handler */
 
@@ -459,7 +480,7 @@ void SIGINT_handler(int sig) {
     int olderrno = errno;
     PG* current, *next;
 
-        Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
     for (current = FGPGs->head; current != NULL; ) {
         for (int i = 0; i < current->count; ++i) {
             kill(current->pids[i], SIGINT);
@@ -474,7 +495,7 @@ void SIGINT_handler(int sig) {
     reaped = 1;
 
     errno = olderrno;
-        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+    Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
 /* $end SIGINT_handler */
 
@@ -525,7 +546,7 @@ PG* PG_create(int job_id, int count, char* cmd) {
 
 /* $begin PG_push_back */
 void PG_push_back(PG_list* PGs, PG* pg) {
-    if(PGs->head == PGs->tail) {
+    if(PGs->count == 0) {
         PGs->head = pg;
         PGs->tail = pg;
     }
@@ -623,4 +644,44 @@ void PG_print(PG_list* PGs) {
         }
     }
 }
-/* $end PG_print */
+/* $begin check_termcap */
+int check_termcap(char* filename, const int bg) {
+    if(bg){
+        if((strcmp(filename, "/bin/man") == 0) || (strcmp(filename, "/bin/less") == 0) || (strcmp(filename, "/bin/more") == 0)){
+            return 1;
+        }
+    }
+    return 0;
+}
+/* $end check_termcap */
+
+/* $begin done_BGPG_print */
+void done_BGPG_print() {
+    for (int j = 0; j < MAXARGS; ++j) {
+        if(pgs[j] == NULL) continue;
+        else {
+            if(pgs[j]->status == DONE) {
+                printf("[%d] Done\t\t%s\n", pgs[j]->job_id, pgs[j]->cmdline);
+                pgs[j] = NULL;
+                free(pgs[j]);
+            }
+        }
+    }
+
+}
+/* $end done_BGPG_print */
+//
+///* $begin done_BGPG_delete */
+//void done_BGPG_delete(){
+//    for (int j = 0; j < MAXARGS; ++j) {
+//        if(pgs[j] == NULL) continue;
+//        else {
+//            if(pgs[j]->status == DONE) {
+//                PG_delete(BGPGs, pgs[j]);
+//                free(pgs[j]);
+//                pgs[j] = NULL;
+//            }
+//        }
+//    }
+//}
+///* $end done_BGPG_delete */

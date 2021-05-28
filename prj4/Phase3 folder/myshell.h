@@ -3,7 +3,7 @@
 #define WRITE 1
 
 sigset_t mask_all, mask_one, prev_one;
-int reaped;
+int reaped, nullfd;
 
 typedef struct process_group {
     int job_id;
@@ -39,6 +39,9 @@ void search_and_execve(char* filename, char** argv);
 void SIGCHLD_handler(int sig);
 void SIGINT_handler(int sig);
 void SIGTSTP_handler(int sig);
+
+int check_termcap(char* filename, const int bg);
+
 /* Data structure for built-in commands that support job control */
 
 #define RUNNING 0
@@ -56,3 +59,5 @@ void PG_delete(PG_list* PGs, PG* pg);
 PG* PG_search(PG_list* PGs, int job_id, pid_t pid, int option);
 int change_PG_status(PG_list* PGs, PG* pg, int status);
 void PG_print(PG_list* PGs);
+void done_BGPG_print();
+void done_BGPG_delete();

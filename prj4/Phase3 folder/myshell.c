@@ -9,9 +9,16 @@
 #include "csapp.h"
 #include "myshell.h"
 
+PG* pgs[MAXARGS] = {NULL,};
+int pgs_index = 0;
+
 int main() 
 {
     char cmdline[MAXLINE]; /* Command line */
+
+
+    nullfd = open("/dev/null", O_WRONLY);
+
     FGPGs = (PG_list *) Malloc(sizeof(PG_list));
     BGPGs = (PG_list *) Malloc(sizeof(PG_list));
 
@@ -37,9 +44,9 @@ int main()
         if (feof(stdin))
             exit(0);
 
-
         /* Evaluate */
         eval(cmdline);
     }
+    close(nullfd);
 }
 /* $end shellmain */
