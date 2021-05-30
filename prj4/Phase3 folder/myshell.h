@@ -64,4 +64,3 @@ PG* PG_search(PG_list* PGs, int job_id, pid_t pid, int option);
 int change_PG_status(PG_list* PGs, PG* pg, int status);
 void PG_print(PG_list* PGs);
 void done_BGPG_print();
-void done_BGPG_delete();
