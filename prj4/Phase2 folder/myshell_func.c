@@ -34,6 +34,7 @@ void eval(char *cmdline)
     bg = parseline(buf, argv, &pipe_count);
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
+
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
         if (pipe_count > 0) {
             exec_pipe(argv, pipe_count);
@@ -89,10 +90,28 @@ int parseline(char *buf, char **argv, int* pipe_count)
     char *delim;         /* Points to first space delimiter */
     int argc;            /* Number of args */
     int bg;              /* Background job? */
+    char *delim_pipe;
+    char buf_pipe[MAXLINE] = {'\0',};
 
     buf[strlen(buf)-1] = ' ';  /* Replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* Ignore leading spaces */
         buf++;
+
+    /*
+     * for the case there is no space either left or right side of |
+     * insert ' ' for both side of |.
+     * */
+    char *last = buf;
+    if ((delim_pipe = strchr(buf, '|')) != NULL) {
+        while((delim_pipe = strchr(buf, '|')) != NULL) {
+            strncat(buf_pipe, buf, delim_pipe-last);
+            strcat(buf_pipe, " | ");
+            buf = delim_pipe + 1;
+            last = buf;
+        }
+        strcat(buf_pipe, last);
+        strcpy(buf, buf_pipe);
+    }
 
     /* Build the argv list */
     argc = 0;
@@ -103,10 +122,13 @@ int parseline(char *buf, char **argv, int* pipe_count)
             *(delim - 1) = '\0';
         }
         else *delim = '\0';
+
+        trim(argv[argc-1]);
         /* Count parse */
         if (strcmp(argv[argc-1], "|") == 0) {
             (*pipe_count)++;
         }
+
         buf = delim + 1;
         while (*buf && (*buf == ' ')) /* Ignore spaces */
             buf++;
@@ -140,6 +162,7 @@ int exec_pipe(char** argv, const int pipe_count) {
     pid = (pid_t *) Malloc(sizeof(pid_t) * (pipe_count + 1));
 
     pipe_argv = (char ***) Malloc(sizeof(char **) * (pipe_count + 1));
+
 
     for (int j = 0; j <= pipe_count; ++j) {
         /* Allocate Dynamic CHAR array for argv of each command */
@@ -265,4 +288,43 @@ void search_and_execve(char* filename, char** argv) {
 }
 /* $end search_and_execve */
 
+void ltrim(char* cmd) {
+    int index = 0, cmd_len = (int)strlen(cmd);
+    char trimmed[MAXLINE];
 
+    strcpy(trimmed, cmd);
+    // 왼쪽부터 시작해 공백 또는 탭 문자가 나오지 않을 때까지 탐색한 후
+    for (int i = 0; i < cmd_len; ++i) {
+        if(trimmed[i] == ' ' || trimmed[i] == '\t') {
+            index++;
+        }
+        else {
+            break;
+        }
+    }
+    // 공백이 아닌 인덱스부터의 문자열을 원래의 문자열에 복사한다.
+    strcpy(cmd, trimmed+index);
+}
+
+void trim(char* cmd) {
+    rtrim(cmd);
+    ltrim(cmd);
+}
+void rtrim(char* cmd) {
+    int cmd_len = (int)strlen(cmd);
+    char trimmed[MAXLINE];
+
+    strcpy(trimmed, cmd);
+    // 오른쪽부터 시작해 공백 또는 탭 문자나 개행문자가 아닐 떄까지 탐색한 후
+    for (int i = cmd_len-1; i >= 0; --i) {
+        if(trimmed[i] == ' ' || trimmed[i] == '\t' || trimmed[i] == '\n') {
+            continue;
+        }
+        else {
+            // 공백이 아닌 인덱스+1에 널 문자를 삽입함으로써 문자열의 종료 구간을 설정한다.
+            trimmed[i+1] = '\0';
+            break;
+        }
+    }
+    strcpy(cmd, trimmed);
+}

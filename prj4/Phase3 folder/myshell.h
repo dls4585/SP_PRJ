@@ -31,6 +31,10 @@ int parseline(char *buf, char **argv, int* pipe_count);
 int builtin_command(char **argv);
 void cd(char* path);
 
+void trim(char* cmd);
+void rtrim(char* cmd);
+void ltrim(char* cmd);
+
 int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline);
 void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg, PG* pg);
 

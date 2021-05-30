@@ -1,6 +1,10 @@
 Project4 - Phase2
+
+functions of shell :
+    shell can process piped commands.
+
 myshell.{h,c} :
-    main source and header file to execute myshell for Phase1.
+    main source and header file to execute myshell for Phase2.
 
 myshell_func.c  :
     source file that includes implementation of functions defined in myshell.h.

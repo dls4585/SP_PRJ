@@ -30,12 +30,15 @@
  *
  * Updated 2021/05/29 - 백인찬
  * - implemented less / man / more not to print result out on STDOUT.
+ *
+ * Updated 2021/05/30 - 백인찬
+ * - Add comments
  */
 
 #include "csapp.h"
 #include "myshell.h"
 
-extern PG* pgs[MAXARGS];
+extern PG* done_PGs[MAXARGS];
 extern int pgs_index;
 
 /* $begin eval */
@@ -59,24 +62,31 @@ void eval(char *cmdline)
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
     if (!builtin_command(argv)) { // quit -> exit(0), & -> ignore, other -> run
+        /*
+         * if there are background jobs, UNBLOCK SIGCHLD
+         * else BLOCK SIGCHLD
+         */
         Sigprocmask(SIG_BLOCK, &mask_one, &prev_one);
         if(BGPGs->count != 0) {
             Sigprocmask(SIG_SETMASK, &prev_one, NULL);
         }
+        /* if command is piped command */
         if (pipe_count > 0) {
-
             if((pids = exec_pipe(argv, pipe_count, bg, cmdline)) != NULL) {
-                if (!bg) {
-                    /* Parent waits for foreground job to terminate */
-
-                } else {
-                    //when there is backgrount process!
+                // when there is background process!
+                if(bg) {
                     printf("[%d] %d\n", PG_search(BGPGs, 0, pids[0], S_PID)->job_id, pids[0]);
                     return;
                 }
             }
-        } else {
+        }
+        /* if command is not piped */
+        else {
             if ((pid = Fork()) == 0) { /* Child runs user job */
+                /*
+                 * For child, set default handlers for SIGINT, SIGTSTP
+                 * and UNBLOCK SIGCHLD
+                 */
                 Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 Signal(SIGINT, SIG_DFL);
                 Signal(SIGTSTP, SIG_DFL);
@@ -86,6 +96,10 @@ void eval(char *cmdline)
                     strcat(bin, argv[0]);
                     argv[0] = bin;
                 }
+                /*
+                 * if command is more / less / man,
+                 * don't print output to stdout.
+                 */
                 if(check_termcap(argv[0], bg) > 0) {
                     dup2(nullfd, STDOUT_FILENO);
                 }
@@ -98,26 +112,30 @@ void eval(char *cmdline)
                     Execve(argv[0], argv, environ);
                 }
             }
-            else {
+            else { /* Parent process */
+                /* BLOCK all SIGNALs while parent puts children into data structure */
                 if (!bg) {
-                    /* Parent waits for foreground job to terminate */
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+
                     int id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
                     PG *pg = PG_create(id, 1, cmdline);
                     pg->pids[0] = pid;
                     PG_push_back(FGPGs, pg);
                     reaped = 0;
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+
+                    /* Parent waits for foreground job to terminate */
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-                    printf("%d %s", pid, cmdline);
                     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
                     int id = BGPGs->count == 0 ? 1 : BGPGs->tail->job_id + 1;
                     PG *pg = PG_create(id, 1, cmdline);
                     pg->pids[0] = pid;
                     PG_push_back(BGPGs, pg);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+                    printf("[%d] %s", pg->job_id, cmdline);
+                    /* For background job, parent doesn't wait for child */
                     return;
                 }
             }
@@ -125,7 +143,10 @@ void eval(char *cmdline)
 
     }
 }
+/* $end eval */
 
+
+/* $begin builtin_command */
 /* If first arg is a builtin command, run it and return true */
 int builtin_command(char **argv)
 {
@@ -141,9 +162,10 @@ int builtin_command(char **argv)
         PG_print(BGPGs);
         return 1;
     }
-    if(!strcmp(argv[0], "bg")) {
+    if(!strcmp(argv[0], "bg")) { /* bg %<job id> */
         int id = (int) strtol(argv[1] + 1, NULL, 10);
         PG *pg = PG_search(BGPGs, id, 0, S_JOBID);
+        /* if job is STOPPED, send SIGCONT to its process group (just in case that it is piped) */
         if(pg->status == STOPPED) {
             change_PG_status(BGPGs, pg, RUNNING);
             for (int i = 0; i < pg->count; ++i) {
@@ -158,32 +180,41 @@ int builtin_command(char **argv)
         }
         return 1;
     }
-    if(!strcmp(argv[0], "fg")) {
-//        Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+    if(!strcmp(argv[0], "fg")) { /* fg %<job id> */
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         int id = (int) strtol(argv[1] + 1, NULL, 10);
         PG* pg = PG_search(BGPGs, id, 0, S_JOBID);
+        /* if job is STOPPED, change its status to RUNNING */
         if(pg->status == STOPPED) {
             change_PG_status(BGPGs, pg, RUNNING);
         }
+        /*
+         * remove process structure from BG
+         * insert into FG
+         */
         PG_delete(BGPGs, pg);
         pg->job_id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
         PG_push_back(FGPGs, pg);
         reaped = 0;
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        /* send SIGCONT and explicitly wait */
         for (int i = 0; i < pg->count; ++i) {
             kill(pg->pids[i], SIGCONT);
         }
         while(!reaped);
         return 1;
     }
-    if(!strcmp(argv[0], "kill")) {
+    if(!strcmp(argv[0], "kill")) { /* kill %<job id> */
         Sigprocmask(SIG_BLOCK, &mask_all, NULL);
         int id = (int) strtol(argv[1] + 1, NULL, 10);
         PG *pg = PG_search(BGPGs, id, 0, S_JOBID);
+        /*
+         * remove process structure from BG
+         */
         change_PG_status(BGPGs, pg, KILLED);
         PG_delete(BGPGs, pg);
         Sigprocmask(SIG_SETMASK, &prev_one, NULL);
+        /* send SIGKILL and explicitly wait */
         for (int i = 0; i < pg->count; ++i) {
             kill(pg->pids[i], SIGKILL);
         }
@@ -193,7 +224,7 @@ int builtin_command(char **argv)
 
     return 0;                     /* Not a builtin command */
 }
-/* $end eval */
+/* $end builtin_command */
 
 /* $begin parseline */
 /* parseline - Parse the command line and build the argv array */
@@ -203,17 +234,36 @@ int parseline(char *buf, char **argv, int* pipe_count)
     int argc;            /* Number of args */
     int bg;              /* Background job? */
     char* bgptr;
+    char *delim_pipe;
+    char buf_pipe[MAXLINE] = {'\0',};
+
     buf[strlen(buf)-1] = ' ';  /* Replace trailing '\n' with space */
     while (*buf && (*buf == ' ')) /* Ignore leading spaces */
         buf++;
 
     /* Should the job run in the background? */
     if ((bgptr = strchr(buf,'&')) != NULL) {
-//        argv[--argc] = NULL;
         *bgptr = ' ';
         bg = 1;
-    } else
+    } else {
         bg = 0;
+    }
+
+    /*
+     * for the case there is no space either left or right side of |
+     * insert ' ' for both side of |.
+     * */
+    char *last = buf;
+    if ((delim_pipe = strchr(buf, '|')) != NULL) {
+        while((delim_pipe = strchr(buf, '|')) != NULL) {
+            strncat(buf_pipe, buf, delim_pipe-last);
+            strcat(buf_pipe, " | ");
+            buf = delim_pipe + 1;
+            last = buf;
+        }
+        strcat(buf_pipe, last);
+        strcpy(buf, buf_pipe);
+    }
 
     /* Build the argv list */
     argc = 0;
@@ -224,6 +274,8 @@ int parseline(char *buf, char **argv, int* pipe_count)
             *(delim - 1) = '\0';
         }
         else *delim = '\0';
+
+        trim(argv[argc-1]);
         /* Count parse */
         if (strcmp(argv[argc-1], "|") == 0) {
             (*pipe_count)++;
@@ -255,6 +307,7 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline) {
     int n = 0;
     PG* pg;
 
+    /* create and insert into FG or BG list */
     if(!bg) {
         int id = FGPGs->count == 0 ? 1 : FGPGs->tail->job_id + 1;
         pg = PG_create(id, pipe_count + 1, cmdline);
@@ -328,7 +381,6 @@ int* exec_pipe(char** argv, const int pipe_count, const int bg, char* cmdline) {
 
 /* $begin pipe_fork_execve */
 void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const int bg, PG* pg) {
-    int status;
     for (int i = 0; i <= pipe_count; ++i) {
         pid[i] = Fork();
         /* First command */
@@ -352,8 +404,6 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-//
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -367,6 +417,10 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                 close(fds[i - 1][WRITE]); // close WRITE end of pipe
                 dup2(fds[i - 1][READ], STDIN_FILENO); // duplicate STDIN as READ end of pipe
                 close(fds[i - 1][READ]); // close READ end of pipe
+                /*
+                 * if command is more / less / man,
+                 * don't print output to stdout.
+                 */
                 if(check_termcap(argv[i][0], bg) > 0) {
                     dup2(nullfd, STDOUT_FILENO);
                 }
@@ -383,7 +437,6 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -415,7 +468,6 @@ void pipe_fork_execve(char ***argv, int *pid, int **fds, int pipe_count, const i
                     while(!reaped);
                 } else {
                     //when there is backgrount process!
-//                    Sigprocmask(SIG_BLOCK, &mask_all, NULL);
                     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
                 }
             }
@@ -448,20 +500,20 @@ void SIGCHLD_handler(int sig) {
     PG* ret;
 
     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
-    while((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+    while((pid = waitpid(-1, &status, WNOHANG)) > 0) { // reap child process
         if((ret = PG_search(FGPGs, 0, pid, S_PID)) != NULL) { // if process in foreground
-            reaped = 1;
+            reaped = 1; // let parent know that child was reaped
             ret->remained--;
-            if(ret->remained == 0) {
+            if(ret->remained == 0) { // if all processes in process group were reaped
                 change_PG_status(FGPGs, ret, DONE);
                 PG_delete(FGPGs, ret);
                 free(ret);
             }
         } else if((ret = PG_search(BGPGs, 0, pid, S_PID)) != NULL) { // if process in background
             ret->remained--;
-            if (ret->remained == 0) {
+            if (ret->remained == 0) { // if all processes in process group were reaped
                 change_PG_status(BGPGs, ret, DONE);
-                pgs[pgs_index++] = ret;
+                done_PGs[pgs_index++] = ret; // put process group into done_PGs array
                 PG_delete(BGPGs, ret);
             }
         }
@@ -481,6 +533,10 @@ void SIGINT_handler(int sig) {
     PG* current, *next;
 
     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+    /*
+     * send SIGINT for each foreground jobs
+     * and remove foreground jobs from FG list
+     * */
     for (current = FGPGs->head; current != NULL; ) {
         for (int i = 0; i < current->count; ++i) {
             kill(current->pids[i], SIGINT);
@@ -491,7 +547,7 @@ void SIGINT_handler(int sig) {
         free(current);
         current = next;
     }
-
+    // let parent stop waiting foreground jobs
     reaped = 1;
 
     errno = olderrno;
@@ -504,6 +560,11 @@ void SIGTSTP_handler(int sig) {
     int oldererrno = errno;
     PG *current;
     Sigprocmask(SIG_BLOCK, &mask_all, NULL);
+    /*
+     * send SIGTSTP for each foreground jobs
+     * and remove from foreground jobs from FG list
+     * and insert into BG list
+     */
     for (current = FGPGs->head; current != NULL; current = current->next) {
         change_PG_status(FGPGs, current, STOPPED);
         PG_delete(FGPGs, current);
@@ -513,7 +574,9 @@ void SIGTSTP_handler(int sig) {
             kill(current->pids[i], SIGTSTP);
         }
     }
+    // let parent stop waiting foreground jobs
     reaped = 1;
+
     errno = oldererrno;
     Sigprocmask(SIG_SETMASK, &prev_one, NULL);
 }
@@ -606,7 +669,6 @@ PG* PG_search(PG_list* PGs, int job_id, pid_t pid, int option) {
         default:
             break;
     }
-
     return NULL;
 }
 /* $end PG_search */
@@ -658,30 +720,58 @@ int check_termcap(char* filename, const int bg) {
 /* $begin done_BGPG_print */
 void done_BGPG_print() {
     for (int j = 0; j < MAXARGS; ++j) {
-        if(pgs[j] == NULL) continue;
+        if(done_PGs[j] == NULL) continue;
         else {
-            if(pgs[j]->status == DONE) {
-                printf("[%d] Done\t\t%s\n", pgs[j]->job_id, pgs[j]->cmdline);
-                pgs[j] = NULL;
-                free(pgs[j]);
+            if(done_PGs[j]->status == DONE) {
+                printf("[%d] Done\t\t%s\n", done_PGs[j]->job_id, done_PGs[j]->cmdline);
+                done_PGs[j] = NULL;
+                pgs_index--;
+                free(done_PGs[j]);
             }
         }
     }
-
 }
 /* $end done_BGPG_print */
-//
-///* $begin done_BGPG_delete */
-//void done_BGPG_delete(){
-//    for (int j = 0; j < MAXARGS; ++j) {
-//        if(pgs[j] == NULL) continue;
-//        else {
-//            if(pgs[j]->status == DONE) {
-//                PG_delete(BGPGs, pgs[j]);
-//                free(pgs[j]);
-//                pgs[j] = NULL;
-//            }
-//        }
-//    }
-//}
-///* $end done_BGPG_delete */
+
+
+void ltrim(char* cmd) {
+    int index = 0, cmd_len = (int)strlen(cmd);
+    char trimmed[MAXLINE];
+
+    strcpy(trimmed, cmd);
+    // 왼쪽부터 시작해 공백 또는 탭 문자가 나오지 않을 때까지 탐색한 후
+    for (int i = 0; i < cmd_len; ++i) {
+        if(trimmed[i] == ' ' || trimmed[i] == '\t') {
+            index++;
+        }
+        else {
+            break;
+        }
+    }
+    // 공백이 아닌 인덱스부터의 문자열을 원래의 문자열에 복사한다.
+    strcpy(cmd, trimmed+index);
+}
+
+void trim(char* cmd) {
+    rtrim(cmd);
+    ltrim(cmd);
+}
+void rtrim(char* cmd) {
+    int cmd_len = (int)strlen(cmd);
+    char trimmed[MAXLINE];
+
+    strcpy(trimmed, cmd);
+    // 오른쪽부터 시작해 공백 또는 탭 문자나 개행문자가 아닐 떄까지 탐색한 후
+    for (int i = cmd_len-1; i >= 0; --i) {
+        if(trimmed[i] == ' ' || trimmed[i] == '\t' || trimmed[i] == '\n') {
+            continue;
+        }
+        else {
+            // 공백이 아닌 인덱스+1에 널 문자를 삽입함으로써 문자열의 종료 구간을 설정한다.
+            trimmed[i+1] = '\0';
+            break;
+        }
+    }
+    strcpy(cmd, trimmed);
+}
+

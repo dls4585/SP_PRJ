@@ -1,4 +1,8 @@
-Project4 - Phase2
+Project4 - Phase1
+
+functions of shell :
+    shell can process unpiped(single) command.
+
 myshell.{h,c} :
     main source and header file to execute myshell for Phase1.
 
