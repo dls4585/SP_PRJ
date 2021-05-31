@@ -504,6 +504,12 @@ void SIGCHLD_handler(int sig) {
         if((ret = PG_search(FGPGs, 0, pid, S_PID)) != NULL) { // if process in foreground
             reaped = 1; // let parent know that child was reaped
             ret->remained--;
+            for (int i = 0; i < ret->count; ++i) {
+                if(ret->pids[i] == pid) {
+                    ret->pids[i] = -1;
+                    break;
+                }
+            }
             if(ret->remained == 0) { // if all processes in process group were reaped
                 change_PG_status(FGPGs, ret, DONE);
                 PG_delete(FGPGs, ret);
@@ -511,6 +517,12 @@ void SIGCHLD_handler(int sig) {
             }
         } else if((ret = PG_search(BGPGs, 0, pid, S_PID)) != NULL) { // if process in background
             ret->remained--;
+            for (int i = 0; i < ret->count; ++i) {
+                if(ret->pids[i] == pid) {
+                    ret->pids[i] = -1;
+                    break;
+                }
+            }
             if (ret->remained == 0) { // if all processes in process group were reaped
                 change_PG_status(BGPGs, ret, DONE);
                 done_PGs[pgs_index++] = ret; // put process group into done_PGs array
@@ -539,7 +551,9 @@ void SIGINT_handler(int sig) {
      * */
     for (current = FGPGs->head; current != NULL; ) {
         for (int i = 0; i < current->count; ++i) {
-            kill(current->pids[i], SIGINT);
+            if(current->pids[i] != -1) {
+                kill(current->pids[i], SIGINT);
+            }
         }
         change_PG_status(FGPGs, current, KILLED);
         PG_delete(FGPGs, current);
@@ -571,7 +585,9 @@ void SIGTSTP_handler(int sig) {
         current->job_id = BGPGs->count == 0 ? 1 : BGPGs->tail->job_id + 1;
         PG_push_back(BGPGs, current);
         for (int i = 0; i < current->count; ++i) {
-            kill(current->pids[i], SIGTSTP);
+            if(current->pids[i] != -1) {
+                kill(current->pids[i], SIGTSTP);
+            }
         }
     }
     // let parent stop waiting foreground jobs
