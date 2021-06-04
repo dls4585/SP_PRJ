@@ -73,6 +73,7 @@ int main(int argc, char **argv)
 			
 				Rio_writen(clientfd, buf, strlen(buf));
 				Rio_readlineb(&rio, buf, MAXLINE);
+				printf("from server:");
 				Fputs(buf, stdout);
 
 				usleep(1000000);
