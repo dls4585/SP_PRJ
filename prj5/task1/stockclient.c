@@ -1,12 +1,12 @@
 /*
- * echoclient.c - An echo client
+ * echoclient.c - An action client
  */
 /* $begin echoclientmain */
 #include "csapp.h"
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
-    int clientfd;
+    int clientfd, n;
     char *host, *port, buf[MAXLINE];
     rio_t rio;
 
@@ -22,8 +22,13 @@ int main(int argc, char **argv)
 
     while (Fgets(buf, MAXLINE, stdin) != NULL) {
         Rio_writen(clientfd, buf, strlen(buf));
-        Rio_readlineb(&rio, buf, MAXLINE);
+//        while((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) {
+        Rio_readnb(&rio, buf, MAXLINE);
         Fputs(buf, stdout);
+//        }
+        Fputs("end", stdout);
+//        Rio_readnb(&rio, buf, MAXLINE);
+//        Fputs(buf, stdout);
     }
     Close(clientfd); //line:netp:echoclient:close
     exit(0);

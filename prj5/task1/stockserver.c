@@ -1,14 +1,18 @@
 /* 
- * echoserveri.c - An iterative echo server 
+ * echoserveri.c - An iterative action server
  */ 
 /* $begin echoserverimain */
 #include "csapp.h"
 #include "stockserver.h"
 
-void echo(int connfd);
-
 int main(int argc, char **argv) 
 {
+
+    init_tree();
+    init_queue();
+    construct_stock_tree();
+
+
     int listenfd, connfd;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;  /* Enough space for any address */  //line:netp:echoserveri:sockaddrstorage
@@ -26,12 +30,14 @@ int main(int argc, char **argv)
     nulltime.tv_usec = 0;
 
     FD_ZERO(&in);
+    FD_ZERO(&out);
+    FD_ZERO(&excp);
     FD_SET(listenfd, &in);
     fd_max = listenfd;
 
     while (1) {
         temp = in;
-        if ((num = Select(fd_max + 1, &temp, 0, 0, &nulltime)) == -1) break;
+        if ((num = Select(fd_max + 1, &temp, &out, &excp, &nulltime)) == -1) break;
 
         if(num == 0) continue;
 
@@ -50,7 +56,7 @@ int main(int argc, char **argv)
                         printf("Connected to (%s, %s)\n", client_hostname, client_port);
                     }
                     else { // get message from fd "i"
-                        echo(i);
+                        action(i);
 //                        Close(i);
                     }
                 }
@@ -62,9 +68,27 @@ int main(int argc, char **argv)
 }
 /* $end echoserverimain */
 
+/* $begin construct_stock_tree */
+void construct_stock_tree() {
+    FILE* f = fopen("stock.txt", "r");
+    if (f == NULL) {
+        fprintf(stderr, "cannot open stock.txt\n");
+        exit(1);
+    }
+    int id, left_stock, price;
+    while(fscanf(f, "%d %d %d", &id, &left_stock, &price) != EOF) {
+        struct item *new_item = create_item(id, left_stock, price);
+        insert_queue(create_itemQ(new_item));
+        insert_item(new_item);
+    }
+
+}
+/* $end construct_stock_tree */
+
 
 /* $begin init_tree */
 void init_tree() {
+    items = (struct itemBTree*) Malloc(sizeof(struct itemBTree));
     items->root = NULL;
     items->count = 0;
 }
@@ -139,11 +163,26 @@ int change_stock(int ID, int new_amount) {
 }
 /* $end change_stock */
 
+/* $begin create_item */
+struct item* create_item(int id, int left_stock, int price) {
+    struct item* node = (struct item*) Malloc(sizeof(struct item));
+    node->ID = id;
+    node->left_stock = left_stock;
+    node->price = price;
+    node->left = NULL;
+    node->right = NULL;
+
+    return node;
+}
+/* $end create_item */
+
 
 void init_queue() {
+    Q = (struct queue*) Malloc(sizeof(struct queue));
     Q->front = NULL;
     Q->rear = NULL;
 }
+
 void insert_queue(struct itemQ* new_item) {
     if (Q->front == NULL) {
         Q->front = Q->rear = new_item;
@@ -169,3 +208,36 @@ struct item* pop_queue() {
     }
 }
 
+void update_file() {
+    FILE* fp = fopen("stock.txt", "w");
+    if (fp == NULL) {
+        printf("cannot open stock.txt\n");
+        exit(1);
+    }
+    pre_traverse(fp, items->root, NULL);
+
+    fclose(fp);
+}
+
+void pre_traverse(FILE* fp, struct item* node, char buf[]) {
+    if(node) {
+        if(fp == NULL) {
+            sprintf(buf, "%s%d %d %d\n", buf, node->ID, node->left_stock, node->price);
+        }
+        else {
+            fprintf(fp, "%d %d %d\n", node->ID, node->left_stock, node->price);
+        }
+        pre_traverse(fp, node->left, buf);
+        pre_traverse(fp, node->right, buf);
+    }
+}
+
+void rio_traverse(struct item* node, int connfd, char buf[]) {
+    if (node) {
+        sprintf(buf, "%s %d %d %d\n", buf, node->ID, node->left_stock, node->price);
+        rio_traverse(node->left, connfd, buf);
+        rio_traverse(node->right, connfd, buf);
+        buf[strlen(buf) - 1] = '\0';
+        Rio_writen(connfd, buf, strlen(buf));
+    }
+}
