@@ -3,6 +3,7 @@
   <component name="SshConfigs">
     <configs>
       <sshConfig authType="PASSWORD" host="cspro6.sogang.ac.kr" id="d49f3e13-cdf6-4f7b-b931-07f78782183a" port="22" nameFormat="DESCRIPTIVE" username="cse20150195" />
+      <sshConfig authType="PASSWORD" host="cspro.sogang.ac.kr" id="1f22ce8c-195d-4511-bce2-0135bc6880f3" port="22" nameFormat="DESCRIPTIVE" username="cse20150195" />
     </configs>
   </component>
 </project>
