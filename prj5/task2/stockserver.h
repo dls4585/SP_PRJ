@@ -8,7 +8,7 @@ struct item {
     int ID;
     int left_stock;
     int price;
-    int readcnt;
+    int readcnt; /* Semaphore  */
     sem_t mutex;
     sem_t w;
     struct item* left;
@@ -49,3 +49,4 @@ int action(int connfd);
 void parseline(char buf[], char cpy[][MAXLINE]);
 int exec_cmd(char cpy[][MAXLINE], char buf[]);
 
+void thread_func(void* arg);

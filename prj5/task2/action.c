@@ -7,6 +7,14 @@
 
 #define CYN   "\x1B[36m"
 
+void thread_func(void* arg) {
+    int connfd = *((int*) arg);
+    Pthread_detach(Pthread_self());
+    free(arg);
+    action(connfd);
+    Close(connfd);
+}
+
 int action(int connfd)
 {
     int n;

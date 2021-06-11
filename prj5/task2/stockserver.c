@@ -12,56 +12,28 @@ int main(int argc, char **argv)
     construct_stock_tree();
 
 
-    int listenfd, connfd;
+    int listenfd, *connfd;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;  /* Enough space for any address */  //line:netp:echoserveri:sockaddrstorage
     char client_hostname[MAXLINE], client_port[MAXLINE];
-    fd_set in, out, excp, temp;
-    struct timeval nulltime;
-    int fd_max, num;
+    pthread_t new_thread;
+
     if (argc != 2) {
 	    fprintf(stderr, "usage: %s <port>\n", argv[0]);
 	    exit(0);
     }
 
     listenfd = Open_listenfd(argv[1]);
-    nulltime.tv_sec = 0;
-    nulltime.tv_usec = 0;
-
-    FD_ZERO(&in);
-    FD_ZERO(&out);
-    FD_ZERO(&excp);
-    FD_SET(listenfd, &in);
-    fd_max = listenfd;
 
     while (1) {
-        temp = in;
-        if ((num = Select(fd_max + 1, &temp, &out, &excp, &nulltime)) == -1) break;
-
-        if(num == 0) continue;
-
-        for (int i = 0; i < fd_max + 1; ++i) {
-            if(FD_ISSET(i, &in)) { // check if we need to check this fd "i"
-                if(FD_ISSET(i, &temp)) { // check if we have any readable request from fd "i"
-                    if(i == listenfd) { // connection request
-                        clientlen = sizeof(struct sockaddr_storage);
-                        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-                        FD_SET(connfd, &in); // set connfd as what is needed to be checked
-                        if(fd_max < connfd) {
-                            fd_max = connfd;
-                        }
-                        Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
-                                    client_port, MAXLINE, 0);
-                        printf("Connected to (%s, %s)\n", client_hostname, client_port);
-                    }
-                    else { // get message from fd "i"
-                        if(action(i) < 0) {
-                            Close(i);
-                            FD_CLR(i, &in);
-                        }
-                    }
-                }
-            }
+        clientlen = sizeof(struct sockaddr_storage);
+        *connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+        if(*connfd == -1) continue;
+        else {
+            Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
+                        client_port, MAXLINE, 0);
+            printf("Connected to (%s, %s)\n", client_hostname, client_port);
+            Pthread_create(&new_thread, NULL, thread_func, connfd);
         }
     }
     close(listenfd);

@@ -226,6 +226,10 @@ struct item* create_item(int id, int left_stock, int price) {
     node->left = NULL;
     node->right = NULL;
 
+    node->readcnt = 0;
+    Sem_init(&node->mutex, 0, 1);
+    Sem_init(&node->w, 0, 1);
+
     return node;
 }
 /* $end create_item */
