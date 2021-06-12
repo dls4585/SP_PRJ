@@ -5,8 +5,6 @@
 #include "csapp.h"
 #include "stockserver.h"
 
-#define CYN   "\x1B[36m"
-
 void thread_func(void* arg) {
     int connfd = *((int*) arg);
     Pthread_detach(Pthread_self());

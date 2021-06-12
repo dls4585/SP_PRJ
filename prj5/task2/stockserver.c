@@ -181,10 +181,12 @@ struct item* search_item(struct item* node, int ID) {
 /* $end search_item */
 
 /* $begin change_stock */
-int change_stock(int ID, int new_amount) {
+int change_stock(int ID, int new_amount) { // writer
     struct item* target = search_item(items->root, ID);
     if(target == NULL) return -1;
+    P(&target->w);
     target->left_stock = new_amount;
+    V(&target->w);
     return 1;
 }
 /* $end change_stock */
@@ -203,7 +205,7 @@ struct item* create_item(int id, int left_stock, int price) {
 /* $end create_item */
 
 
-void update_file() {
+void update_file() { // reader
     FILE* fp = fopen("stock.txt", "w");
     if (fp == NULL) {
         printf("cannot open stock.txt\n");
@@ -214,25 +216,39 @@ void update_file() {
     fclose(fp);
 }
 
-void in_traverse(FILE* fp, struct item* node, char *buf) {
+void in_traverse(FILE* fp, struct item* node, char *buf) { // reader
     if(node) {
         in_traverse(fp, node->left, buf);
         if(fp == NULL) {
+            P(&node->mutex);
+            node->readcnt++;
+            if(node->readcnt == 1) {
+                P(&node->w);
+            }
+            V(&node->mutex);
             sprintf(buf, "%s%d %d %d\n", buf, node->ID, node->left_stock, node->price);
+            P(&node->mutex);
+            node->readcnt--;
+            if(node->readcnt == 0) {
+                V(&node->w);
+            }
+            V(&node->w);
         }
         else {
+            P(&node->mutex);
+            node->readcnt++;
+            if(node->readcnt == 1) {
+                P(&node->w);
+            }
+            V(&node->mutex);
             fprintf(fp, "%d %d %d\n", node->ID, node->left_stock, node->price);
+            P(&node->mutex);
+            node->readcnt--;
+            if(node->readcnt == 0) {
+                V(&node->w);
+            }
+            V(&node->w);
         }
         in_traverse(fp, node->right, buf);
-    }
-}
-
-void rio_traverse(struct item* node, int connfd, char buf[]) {
-    if (node) {
-        sprintf(buf, "%s %d %d %d\n", buf, node->ID, node->left_stock, node->price);
-        rio_traverse(node->left, connfd, buf);
-        rio_traverse(node->right, connfd, buf);
-        buf[strlen(buf) - 1] = '\0';
-        Rio_writen(connfd, buf, strlen(buf));
     }
 }
