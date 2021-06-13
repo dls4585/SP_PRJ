@@ -70,12 +70,12 @@ int main(int argc, char **argv)
 					strcat(buf, "\n");
 				}
 				//strcpy(buf, "buy 1 2\n");
-			
+
+                Fputs(buf, stdout);
 				Rio_writen(clientfd, buf, strlen(buf));
-//				Rio_readlineb(&rio, buf, MAXLINE);
                 read(clientfd, buf, MAXLINE);
-//				printf("from server:");
-				Fputs(buf, stdout);
+                if(!strncmp(buf, "no", 2)) break;
+                Fputs(buf, stdout);
                 memset(&buf, 0, MAXLINE);
 				usleep(1000000);
 			}

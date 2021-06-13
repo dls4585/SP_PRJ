@@ -49,4 +49,5 @@ int action(int connfd);
 void parseline(char buf[], char cpy[][MAXLINE]);
 int exec_cmd(char cpy[][MAXLINE], char buf[]);
 
-void thread_func(void* arg);
+void *thread_func(void *arg);
+

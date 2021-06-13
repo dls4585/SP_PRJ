@@ -5,12 +5,12 @@
 #include "csapp.h"
 #include "stockserver.h"
 
-void thread_func(void* arg) {
+void *thread_func(void* arg) {
     int connfd = *((int*) arg);
     Pthread_detach(Pthread_self());
-    free(arg);
     action(connfd);
-    Close(connfd);
+    Pthread_exit(0);
+    return NULL;
 }
 
 int action(int connfd)
@@ -20,11 +20,13 @@ int action(int connfd)
     rio_t rio;
 
     Rio_readinitb(&rio, connfd);
-    memset(&write_buf, 0, MAXLINE);
-    if ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { // read message and action then return not to be blocking others
+    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { // read message and action then return not to be blocking others
+        memset(&write_buf, 0, MAXLINE);
         printf("server received %d bytes\n", n);
         parseline(buf, cpy);
         if (exec_cmd(cpy, write_buf) < 0) {
+            strcpy(write_buf, "no");
+            Rio_writen(connfd, write_buf, strlen(write_buf));
             return -1;
         }
         write_buf[strlen(write_buf)] = '\0';

@@ -226,10 +226,6 @@ struct item* create_item(int id, int left_stock, int price) {
     node->left = NULL;
     node->right = NULL;
 
-    node->readcnt = 0;
-    Sem_init(&node->mutex, 0, 1);
-    Sem_init(&node->w, 0, 1);
-
     return node;
 }
 /* $end create_item */
@@ -256,15 +252,5 @@ void in_traverse(FILE* fp, struct item* node, char *buf) {
             fprintf(fp, "%d %d %d\n", node->ID, node->left_stock, node->price);
         }
         in_traverse(fp, node->right, buf);
-    }
-}
-
-void rio_traverse(struct item* node, int connfd, char buf[]) {
-    if (node) {
-        sprintf(buf, "%s %d %d %d\n", buf, node->ID, node->left_stock, node->price);
-        rio_traverse(node->left, connfd, buf);
-        rio_traverse(node->right, connfd, buf);
-        buf[strlen(buf) - 1] = '\0';
-        Rio_writen(connfd, buf, strlen(buf));
     }
 }

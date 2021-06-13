@@ -11,8 +11,7 @@ int main(int argc, char **argv)
     init_tree();
     construct_stock_tree();
 
-
-    int listenfd, *connfd;
+    int listenfd, connfd;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;  /* Enough space for any address */  //line:netp:echoserveri:sockaddrstorage
     char client_hostname[MAXLINE], client_port[MAXLINE];
@@ -27,13 +26,13 @@ int main(int argc, char **argv)
 
     while (1) {
         clientlen = sizeof(struct sockaddr_storage);
-        *connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-        if(*connfd == -1) continue;
+        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+        if(connfd == -1) continue;
         else {
             Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
                         client_port, MAXLINE, 0);
             printf("Connected to (%s, %s)\n", client_hostname, client_port);
-            Pthread_create(&new_thread, NULL, thread_func, connfd);
+            Pthread_create(&new_thread, NULL, thread_func, &connfd);
         }
     }
     close(listenfd);
@@ -54,7 +53,7 @@ void construct_stock_tree() {
         items->root=insert_item(items->root, new_item);
         items->count++;
     }
-
+    fclose(f);
 }
 /* $end construct_stock_tree */
 
@@ -200,6 +199,10 @@ struct item* create_item(int id, int left_stock, int price) {
     node->left = NULL;
     node->right = NULL;
 
+    node->readcnt = 0;
+    Sem_init(&node->mutex, 0, 1);
+    Sem_init(&node->w, 0, 1);
+
     return node;
 }
 /* $end create_item */
@@ -232,7 +235,7 @@ void in_traverse(FILE* fp, struct item* node, char *buf) { // reader
             if(node->readcnt == 0) {
                 V(&node->w);
             }
-            V(&node->w);
+            V(&node->mutex);
         }
         else {
             P(&node->mutex);
@@ -247,7 +250,7 @@ void in_traverse(FILE* fp, struct item* node, char *buf) { // reader
             if(node->readcnt == 0) {
                 V(&node->w);
             }
-            V(&node->w);
+            V(&node->mutex);
         }
         in_traverse(fp, node->right, buf);
     }

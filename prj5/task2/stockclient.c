@@ -23,6 +23,7 @@ int main(int argc, char **argv)
     while (Fgets(buf, MAXLINE, stdin) != NULL) {
         Rio_writen(clientfd, buf, strlen(buf));
         read(clientfd, buf, MAXLINE);
+        if(!strncmp(buf, "no", 2)) break;
         Fputs(buf, stdout);
         memset(&buf, 0, MAXLINE);
     }
