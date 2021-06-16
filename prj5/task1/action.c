@@ -19,6 +19,8 @@ int action(int connfd)
         printf("server received %d bytes\n", n);
         parseline(buf, cpy);
         if (exec_cmd(cpy, write_buf) < 0) {
+            strcpy(write_buf, "no\n");
+            Rio_writen(connfd, write_buf, strlen(write_buf));
             return -1;
         }
         write_buf[strlen(write_buf)] = '\0';

@@ -6,9 +6,10 @@
 #include "stockserver.h"
 
 void *thread_func(void* arg) {
-    int connfd = *((int*) arg);
+    int connfd = *((int *) arg);
     Pthread_detach(Pthread_self());
     action(connfd);
+    update_file();
     Pthread_exit(0);
     return NULL;
 }
@@ -22,10 +23,11 @@ int action(int connfd)
     Rio_readinitb(&rio, connfd);
     while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { // read message and action then return not to be blocking others
         memset(&write_buf, 0, MAXLINE);
-        printf("server received %d bytes\n", n);
+        printf("%d - server received %d bytes : %s", connfd, n, buf);
+//        printf("server received %d bytes : %s\n", n, buf);
         parseline(buf, cpy);
         if (exec_cmd(cpy, write_buf) < 0) {
-            strcpy(write_buf, "no");
+            strcpy(write_buf, "no\n");
             Rio_writen(connfd, write_buf, strlen(write_buf));
             return -1;
         }
@@ -63,6 +65,7 @@ int exec_cmd(char cpy[][MAXLINE], char buf[]) {
     if(!strcmp(temp[0], "show")) {
         update_file();
         in_traverse(NULL, items->root, buf);
+        buf[strlen(buf) - 1] = '\n';
     }
     else if (!strcmp(temp[0], "buy")) {
         int stock_id = (int) strtol(temp[1], NULL, 10);

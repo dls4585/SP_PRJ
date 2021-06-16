@@ -1,11 +1,11 @@
 /* 
  * echoserveri.c - An iterative action server
- */ 
+ */
 /* $begin echoserverimain */
 #include "csapp.h"
 #include "stockserver.h"
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 
     init_tree();
@@ -18,8 +18,8 @@ int main(int argc, char **argv)
     pthread_t new_thread;
 
     if (argc != 2) {
-	    fprintf(stderr, "usage: %s <port>\n", argv[0]);
-	    exit(0);
+        fprintf(stderr, "usage: %s <port>\n", argv[0]);
+        exit(0);
     }
 
     listenfd = Open_listenfd(argv[1]);
@@ -32,7 +32,8 @@ int main(int argc, char **argv)
             Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
                         client_port, MAXLINE, 0);
             printf("Connected to (%s, %s)\n", client_hostname, client_port);
-            Pthread_create(&new_thread, NULL, thread_func, &connfd);
+            int connected = connfd;
+            Pthread_create(&new_thread, NULL, thread_func, (void*)&connected);
         }
     }
     close(listenfd);
@@ -229,7 +230,7 @@ void in_traverse(FILE* fp, struct item* node, char *buf) { // reader
                 P(&node->w);
             }
             V(&node->mutex);
-            sprintf(buf, "%s%d %d %d\n", buf, node->ID, node->left_stock, node->price);
+            sprintf(buf, "%s%d %d %d\t", buf, node->ID, node->left_stock, node->price);
             P(&node->mutex);
             node->readcnt--;
             if(node->readcnt == 0) {

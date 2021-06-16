@@ -73,8 +73,12 @@ int main(int argc, char **argv)
 
                 Fputs(buf, stdout);
                 Rio_writen(clientfd, buf, strlen(buf));
-                read(clientfd, buf, MAXLINE);
+                Rio_readlineb(&rio, buf, MAXLINE);
                 if(!strncmp(buf, "no", 2)) break;
+                char* ptr;
+                while((ptr = strchr(buf, '\t')) != NULL) {
+                    *ptr = '\n';
+                }
                 Fputs(buf, stdout);
                 memset(&buf, 0, MAXLINE);
                 usleep(1000000);

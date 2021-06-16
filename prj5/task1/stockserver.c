@@ -246,7 +246,7 @@ void in_traverse(FILE* fp, struct item* node, char *buf) {
     if(node) {
         in_traverse(fp, node->left, buf);
         if(fp == NULL) {
-            sprintf(buf, "%s%d %d %d\n", buf, node->ID, node->left_stock, node->price);
+            sprintf(buf, "%s%d %d %d\t", buf, node->ID, node->left_stock, node->price);
         }
         else {
             fprintf(fp, "%d %d %d\n", node->ID, node->left_stock, node->price);

@@ -70,16 +70,19 @@ int main(int argc, char **argv)
 					strcat(buf, "\n");
 				}
 				//strcpy(buf, "buy 1 2\n");
-
-                Fputs(buf, stdout);
+//                printf("%d : ", clientfd);
+//                Fputs(buf, stdout);
 				Rio_writen(clientfd, buf, strlen(buf));
-                read(clientfd, buf, MAXLINE);
+                Rio_readlineb(&rio, buf, MAXLINE);
                 if(!strncmp(buf, "no", 2)) break;
+                char* ptr;
+                while((ptr = strchr(buf, '\t')) != NULL) {
+                    *ptr = '\n';
+                }
                 Fputs(buf, stdout);
                 memset(&buf, 0, MAXLINE);
 				usleep(1000000);
 			}
-
 			Close(clientfd);
 			exit(0);
 		}
