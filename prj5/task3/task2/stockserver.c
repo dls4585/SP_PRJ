@@ -1,68 +1,39 @@
 /* 
  * echoserveri.c - An iterative action server
- */ 
+ */
 /* $begin echoserverimain */
 #include "csapp.h"
 #include "stockserver.h"
 
-int main(int argc, char **argv) 
+int main(int argc, char **argv)
 {
 
     init_tree();
     construct_stock_tree();
 
-
     int listenfd, connfd;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;  /* Enough space for any address */  //line:netp:echoserveri:sockaddrstorage
     char client_hostname[MAXLINE], client_port[MAXLINE];
-    fd_set in, out, excp, temp;
-    struct timeval nulltime;
-    int fd_max, num;
+    pthread_t new_thread;
+
     if (argc != 2) {
-	    fprintf(stderr, "usage: %s <port>\n", argv[0]);
-	    exit(0);
+        fprintf(stderr, "usage: %s <port>\n", argv[0]);
+        exit(0);
     }
 
     listenfd = Open_listenfd(argv[1]);
-    nulltime.tv_sec = 0;
-    nulltime.tv_usec = 0;
-
-    FD_ZERO(&in);
-    FD_ZERO(&out);
-    FD_ZERO(&excp);
-    FD_SET(listenfd, &in);
-    fd_max = listenfd;
 
     while (1) {
-        temp = in;
-        if ((num = Select(fd_max + 1, &temp, &out, &excp, &nulltime)) == -1) break;
-
-        if(num == 0) continue;
-
-        for (int i = 0; i < fd_max + 1; ++i) {
-            if(FD_ISSET(i, &in)) { // check if we need to check this fd "i"
-                if(FD_ISSET(i, &temp)) { // check if we have any readable request from fd "i"
-                    if(i == listenfd) { // connection request
-                        clientlen = sizeof(struct sockaddr_storage);
-                        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
-                        FD_SET(connfd, &in); // set connfd as what is needed to be checked
-                        if(fd_max < connfd) {
-                            fd_max = connfd;
-                        }
-                        Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
-                                    client_port, MAXLINE, 0);
-                        printf("Connected to (%s, %s)\n", client_hostname, client_port);
-                    }
-                    else { // get message from fd "i"
-                        if(action(i) < 0) {
-                            update_file();
-                            Close(i);
-                            FD_CLR(i, &in);
-                        }
-                    }
-                }
-            }
+        clientlen = sizeof(struct sockaddr_storage);
+        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
+        if(connfd == -1) continue;
+        else {
+            Getnameinfo((SA *) &clientaddr, clientlen, client_hostname, MAXLINE,
+                        client_port, MAXLINE, 0);
+            printf("Connected to (%s, %s)\n", client_hostname, client_port);
+            int connected = connfd;
+            Pthread_create(&new_thread, NULL, thread_func, (void*)&connected);
         }
     }
     close(listenfd);
@@ -83,7 +54,7 @@ void construct_stock_tree() {
         items->root=insert_item(items->root, new_item);
         items->count++;
     }
-
+    fclose(f);
 }
 /* $end construct_stock_tree */
 
@@ -210,10 +181,12 @@ struct item* search_item(struct item* node, int ID) {
 /* $end search_item */
 
 /* $begin change_stock */
-int change_stock(int ID, int new_amount) {
+int change_stock(int ID, int new_amount) { // writer
     struct item* target = search_item(items->root, ID);
     if(target == NULL) return -1;
+    P(&target->w);
     target->left_stock = new_amount;
+    V(&target->w);
     return 1;
 }
 /* $end change_stock */
@@ -227,12 +200,16 @@ struct item* create_item(int id, int left_stock, int price) {
     node->left = NULL;
     node->right = NULL;
 
+    node->readcnt = 0;
+    Sem_init(&node->mutex, 0, 1);
+    Sem_init(&node->w, 0, 1);
+
     return node;
 }
 /* $end create_item */
 
 
-void update_file() {
+void update_file() { // reader
     FILE* fp = fopen("stock.txt", "w");
     if (fp == NULL) {
         printf("cannot open stock.txt\n");
@@ -243,14 +220,38 @@ void update_file() {
     fclose(fp);
 }
 
-void in_traverse(FILE* fp, struct item* node, char *buf) {
+void in_traverse(FILE* fp, struct item* node, char *buf) { // reader
     if(node) {
         in_traverse(fp, node->left, buf);
         if(fp == NULL) {
+            P(&node->mutex);
+            node->readcnt++;
+            if(node->readcnt == 1) {
+                P(&node->w);
+            }
+            V(&node->mutex);
             sprintf(buf, "%s%d %d %d\t", buf, node->ID, node->left_stock, node->price);
+            P(&node->mutex);
+            node->readcnt--;
+            if(node->readcnt == 0) {
+                V(&node->w);
+            }
+            V(&node->mutex);
         }
         else {
+            P(&node->mutex);
+            node->readcnt++;
+            if(node->readcnt == 1) {
+                P(&node->w);
+            }
+            V(&node->mutex);
             fprintf(fp, "%d %d %d\n", node->ID, node->left_stock, node->price);
+            P(&node->mutex);
+            node->readcnt--;
+            if(node->readcnt == 0) {
+                V(&node->w);
+            }
+            V(&node->mutex);
         }
         in_traverse(fp, node->right, buf);
     }

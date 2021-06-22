@@ -56,7 +56,6 @@ int main(int argc, char **argv)
                     }
                     else { // get message from fd "i"
                         if(action(i) < 0) {
-                            update_file();
                             Close(i);
                             FD_CLR(i, &in);
                         }
@@ -64,6 +63,7 @@ int main(int argc, char **argv)
                 }
             }
         }
+        update_file();
     }
     close(listenfd);
     exit(0);

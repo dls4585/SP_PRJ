@@ -24,6 +24,11 @@ int main(int argc, char **argv)
     port = argv[2];
     num_client = atoi(argv[3]);
 
+    struct timespec start, finish;
+    double elapsed;
+
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
 /*	fork for each client process	*/
     while(runprocess < num_client){
         //wait(&state);
@@ -40,7 +45,9 @@ int main(int argc, char **argv)
             srand((unsigned int) getpid());
 
             for(i=0;i<ORDER_PER_CLIENT;i++){
-                int option = rand() % 3;
+//				int option = rand() % 3; // clients can request for all type
+//				int option = rand() % 2 + 1; // clients request only for buy and sell
+                int option = 0; // clients request only for show
 
                 if(option == 0){//show
                     strcpy(buf, "show\n");
@@ -70,7 +77,8 @@ int main(int argc, char **argv)
                     strcat(buf, "\n");
                 }
                 //strcpy(buf, "buy 1 2\n");
-
+//                printf("%d : ", clientfd);
+//                Fputs(buf, stdout);
                 Rio_writen(clientfd, buf, strlen(buf));
                 Rio_readlineb(&rio, buf, MAXLINE);
                 if(!strncmp(buf, "no", 2)) break;
@@ -80,9 +88,8 @@ int main(int argc, char **argv)
                 }
                 Fputs(buf, stdout);
                 memset(&buf, 0, MAXLINE);
-                usleep(1000000);
+//				usleep(1000000);
             }
-
             Close(clientfd);
             exit(0);
         }
@@ -94,10 +101,17 @@ int main(int argc, char **argv)
         }*/
         runprocess++;
     }
+
     for(i=0;i<num_client;i++){
         waitpid(pids[i], &status, 0);
     }
 
+    clock_gettime(CLOCK_MONOTONIC, &finish);
+
+    elapsed = (finish.tv_sec - start.tv_sec);
+    elapsed += (finish.tv_nsec - start.tv_nsec) / 1000000000.0;
+
+    printf("elapsed time : %lf\n", elapsed);
 
     /*clientfd = Open_clientfd(host, port);
     Rio_readinitb(&rio, clientfd);

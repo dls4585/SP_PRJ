@@ -23,9 +23,10 @@ int action(int connfd)
             Rio_writen(connfd, write_buf, strlen(write_buf));
             return -1;
         }
-        write_buf[strlen(write_buf)] = '\0';
+        write_buf[strlen(write_buf) - 1] = '\n';
         Rio_writen(connfd, write_buf, strlen(write_buf));
     }
+    else return -1;
     return 0;
 }
 /* $end action */
@@ -55,7 +56,6 @@ int exec_cmd(char cpy[][MAXLINE], char buf[]) {
         strcpy(temp[i], cpy[i]);
     }
     if(!strcmp(temp[0], "show")) {
-        update_file();
         in_traverse(NULL, items->root, buf);
     }
     else if (!strcmp(temp[0], "buy")) {

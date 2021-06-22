@@ -62,6 +62,7 @@ int exec_cmd(char cpy[][MAXLINE], char buf[]) {
         strcpy(temp[i], cpy[i]);
     }
     if(!strcmp(temp[0], "show")) {
+        update_file();
         in_traverse(NULL, items->root, buf);
         buf[strlen(buf) - 1] = '\n';
     }

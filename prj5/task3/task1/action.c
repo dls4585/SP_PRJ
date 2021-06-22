@@ -5,14 +5,7 @@
 #include "csapp.h"
 #include "stockserver.h"
 
-void *thread_func(void* arg) {
-    int connfd = *((int *) arg);
-    Pthread_detach(Pthread_self());
-    action(connfd);
-    update_file();
-    Pthread_exit(0);
-    return NULL;
-}
+#define CYN   "\x1B[36m"
 
 int action(int connfd)
 {
@@ -21,8 +14,8 @@ int action(int connfd)
     rio_t rio;
 
     Rio_readinitb(&rio, connfd);
-    while ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { // read message and action then return not to be blocking others
-        memset(&write_buf, 0, MAXLINE);
+    memset(&write_buf, 0, MAXLINE);
+    if ((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0) { // read message and action then return not to be blocking others
         printf("server received %d bytes\n", n);
         parseline(buf, cpy);
         if (exec_cmd(cpy, write_buf) < 0) {
@@ -30,9 +23,10 @@ int action(int connfd)
             Rio_writen(connfd, write_buf, strlen(write_buf));
             return -1;
         }
-        write_buf[strlen(write_buf)] = '\0';
+        write_buf[strlen(write_buf) - 1] = '\n';
         Rio_writen(connfd, write_buf, strlen(write_buf));
     }
+    else return -1;
     return 0;
 }
 /* $end action */
@@ -62,8 +56,8 @@ int exec_cmd(char cpy[][MAXLINE], char buf[]) {
         strcpy(temp[i], cpy[i]);
     }
     if(!strcmp(temp[0], "show")) {
+        update_file();
         in_traverse(NULL, items->root, buf);
-        buf[strlen(buf) - 1] = '\n';
     }
     else if (!strcmp(temp[0], "buy")) {
         int stock_id = (int) strtol(temp[1], NULL, 10);
